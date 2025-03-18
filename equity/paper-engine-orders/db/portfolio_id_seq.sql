@@ -1,0 +1,1 @@
+CREATE SEQUENCE portfolio_id_seq;
