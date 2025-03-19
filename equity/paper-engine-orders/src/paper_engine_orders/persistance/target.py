@@ -81,13 +81,13 @@ class Target(object):
         self._in_progress = False
         logger.info(f"{self.__class__.__name__} disconnected from: {url}")
 
-    def get_portfolio_id(self, portfolio_hash: str) -> Optional[int]:
+    def get_portfolio_id(self, portfolio_name: str) -> Optional[int]:
         """Get strategy id related to provided params."""
         query = (
-            "SELECT portfolio_id " "FROM orders_config " "WHERE portfolio_hash = %s;"
+            "SELECT portfolio_id " "FROM orders_config " "WHERE portfolio_name = %s;"
         )
         cursor = self.cursor
-        cursor.execute(query=query, vars=(portfolio_hash,))
+        cursor.execute(query=query, vars=(portfolio_name,))
         res = cursor.fetchone()
 
         return res[0] if res else None

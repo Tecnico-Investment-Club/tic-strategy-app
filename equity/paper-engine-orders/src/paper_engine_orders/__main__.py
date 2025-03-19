@@ -6,21 +6,18 @@ from datetime import datetime
 from datetime import time as dt_time
 from decimal import Decimal
 import hashlib
-import json
 import logging
 import os
 import secrets
 from sys import stdout
 import time
 from typing import (
-    Any,
     Dict,
     List,
     Optional,
     Set,
     Tuple,
     Type,
-    Union
 )
 
 import pytz
@@ -29,7 +26,6 @@ import pytz
 from paper_engine_orders._types import File, Key, Keys, Record
 import paper_engine_orders.broker as broker
 import paper_engine_orders.model as model
-from paper_engine_orders.model import OrdersLatest
 from paper_engine_orders.model.base import State
 from paper_engine_orders.model.entity import Entity
 import paper_engine_orders.model.source_model as source_model
@@ -49,9 +45,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-Events = Dict[EventType, List[EventLog]]
-Delivery = Dict[Entity, Events]
-Summary = Dict[Entity, Dict[EventType, int]]
 
 # TODO: IMPLEMENT DYNAMIC CHANGE FROM ET TO EST TIME (?)
 US_MARKET_OPEN = dt_time(hour=14, minute=30, second=0, tzinfo=pytz.utc)
@@ -69,8 +62,7 @@ class Loader:
     _dry_run: bool
     _min_sleep: int
     _max_sleep: int
-    _portfolio_params: Dict[str, Any]
-    _portfolio_hash: str
+    _portfolio_name: str
 
     _entities: Set[Entity] = {
         Entity.ORDERS,
@@ -116,12 +108,7 @@ class Loader:
             (args.api_key + args.secret_key).encode("utf-8")
         ).hexdigest()
 
-        self._portfolio_params = {
-            "portfolio_type": args.portfolio_type,
-            "rebal_freq": args.rebal_freq,
-            "adjust": args.adjust,
-            "wgt_method": args.wgt_method,
-        }
+        self._portfolio_name = args.portfolio_name
 
     def tear_down(self) -> None:
         """Cleans loader settings.
@@ -205,7 +192,6 @@ class Loader:
             latest_decision_delivery_id = decision_metadata[3]
             latest_decision_datadate = decision_metadata[3]
 
-            portfolio_hash = self.get_portfolio_hash(strategy_id)
             strategy_records = self.get_latest_decision(strategy_id)
 
             asset_ids = [s.asset_id for s in strategy_records]
@@ -250,9 +236,13 @@ class Loader:
                     unique_short_portfolio.append(p)
 
             account_capital = self._broker.get_account_capital()
-            # TODO: FOR NOW LONG ONLY IS HARD CODED HERE
+
+            ############################################
+            ### FOR NOW LONG ONLY IS HARD CODED HERE ###
+            ############################################
             long_capital = account_capital
             short_capital = Decimal("0")
+            ############################################
 
             long_weighting = Weighting.setup(
                 self._broker, long_capital, long_portfolio, current_positions
@@ -283,11 +273,11 @@ class Loader:
                 )
             )
             config_records.append(
-                self.get_config_record(portfolio_id, strategy_id, portfolio_hash)
+                self.get_config_record(portfolio_id, strategy_id)
             )
 
         delivery_id: int = self._target.get_next_delivery_id()
-        delivery: Delivery = {
+        delivery: Dict = {
             Entity.ORDERS: self.process(
                 delivery_id=delivery_id,
                 entity=Entity.ORDERS,
@@ -335,8 +325,7 @@ class Loader:
 
     def get_portfolio_id(self, strategy_id: int) -> int:
         """Get portfolio id."""
-        portfolio_hash = self.get_portfolio_hash(strategy_id)
-        portfolio_id = self._target.get_portfolio_id(portfolio_hash)
+        portfolio_id = self._target.get_portfolio_id(self._portfolio_name)
         if not portfolio_id:
             portfolio_id = self._target.get_next_portfolio_id()
         return portfolio_id
@@ -374,10 +363,7 @@ class Loader:
 
             last_decision_delivery_id = last_decision_metadata[0][1]
 
-            if (
-                self._portfolio_params["adjust"]
-                or last_decision_delivery_id < latest_decision_delivery_id
-            ):
+            if last_decision_delivery_id < latest_decision_delivery_id:
                 res.append(r)
 
         return res
@@ -392,32 +378,14 @@ class Loader:
 
         return strategy_records
 
-    def get_portfolio_hash(self, strategy_id: int) -> str:
-        """Get portfolio hash from portfolio params."""
-        portfolio_hash = hashlib.sha256(
-            (
-                str(strategy_id)
-                + self._portfolio_params["portfolio_type"].upper()
-                + self._portfolio_params["rebal_freq"].upper()
-                + self._portfolio_params["adjust"]
-                + self._portfolio_params["wgt_method"].upper()
-            ).encode("utf-8")
-        ).hexdigest()
-
-        return portfolio_hash
-
     def get_config_record(
-        self, portfolio_id: int, strategy_id: int, portfolio_hash: str
+        self, portfolio_id: int, strategy_id: int
     ) -> Record:
         """Get portfolio configuration records."""
         config_record: Record = (
             portfolio_id,
             strategy_id,
-            self._portfolio_params["portfolio_type"].upper(),
-            self._portfolio_params["rebal_freq"].upper(),
-            self._portfolio_params["adjust"],
-            self._portfolio_params["wgt_method"].upper(),
-            portfolio_hash,
+            self._portfolio_name,
             self._account_id,
         )
 
@@ -467,7 +435,7 @@ class Loader:
         self,
         delivery_id: int,
         start_time: datetime,
-        delivery: Delivery,
+        delivery: Dict,
     ) -> None:
         """Persists records present in delivery.
 
@@ -556,33 +524,6 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--notifications",
-        dest="notifications",
-        action="store_true",
-        required=False,
-        help="Enable notifications (default)",
-    )
-    parser.add_argument(
-        "--no-notifications",
-        dest="notifications",
-        action="store_false",
-        required=False,
-        help="Disable notifications",
-    )
-    parser.set_defaults(
-        notifications=ast.literal_eval(os.environ.get("NOTIFICATIONS", "False"))
-    )
-
-    parser.add_argument(
-        "--nats",
-        dest="nats",
-        default=os.environ.get("NATS"),
-        type=str,
-        required=False,
-        help="NATS connection URL. e.g.: nats://127.0.0.1:4222",
-    )
-
-    parser.add_argument(
         "--source",
         dest="source",
         type=str,
@@ -639,39 +580,12 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--portfolio_type",
-        dest="portfolio_type",
-        default=os.getenv("PORTFOLIO_TYPE"),
+        "--portfolio_name",
+        dest="portfolio_name",
+        default=os.getenv("PORTFOLIO_NAME"),
         type=str,
         required=False,
         help="Type of portfolio (dollar neutral, etc.).",
-    )
-
-    parser.add_argument(
-        "--rebal_freq",
-        dest="rebal_freq",
-        default=os.getenv("REBAL_FREQ"),
-        type=str,
-        required=False,
-        help="Rebalancing frequency of the portfolio.",
-    )
-
-    parser.add_argument(
-        "--adjust",
-        dest="adjust",
-        default=os.getenv("ADJUST"),
-        type=str,
-        required=False,
-        help="The portfolio is adjusted even when there are no new decisions.",
-    )
-
-    parser.add_argument(
-        "--wgt_method",
-        dest="wgt_method",
-        default=os.getenv("WGT_METHOD"),
-        type=str,
-        required=False,
-        help="Weighting method of the portfolio.",
     )
 
     parser.add_argument(
