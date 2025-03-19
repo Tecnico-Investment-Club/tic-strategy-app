@@ -12,7 +12,7 @@ CREATE TABLE orders_latest
 
     hash                                    VARCHAR NOT NULL,
 
-    event_id                                BIGINT NOT NULL UNIQUE REFERENCES orders_latest_event_log(event_id),
+    event_id                                BIGINT NOT NULL UNIQUE,
     delivery_id                             BIGINT NOT NULL,
 
     PRIMARY KEY(portfolio_id, asset_id)

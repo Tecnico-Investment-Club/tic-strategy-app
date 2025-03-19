@@ -7,7 +7,7 @@ CREATE TABLE orders_control
 
     hash                                    VARCHAR NOT NULL,
 
-    event_id                                BIGINT NOT NULL UNIQUE REFERENCES orders_control_event_log(event_id),
+    event_id                                BIGINT NOT NULL UNIQUE,
     delivery_id                             BIGINT NOT NULL,
 
     PRIMARY KEY(portfolio_id)
