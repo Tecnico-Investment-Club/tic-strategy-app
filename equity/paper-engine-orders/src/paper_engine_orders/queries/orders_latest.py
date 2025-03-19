@@ -9,6 +9,10 @@ class Queries(BaseQueries):
     LOAD_STATE = (
         "SELECT * FROM orders_latest WHERE (portfolio_id, asset_id) IN (VALUES %s);"
     )
+    LOAD_FULL_STATE = (
+        "SELECT * FROM orders_latest WHERE (portfolio_id, asset_id) IN (VALUES %s);"
+    )
+
     UPSERT = (
         "INSERT INTO orders_latest ("
         "    portfolio_id, "
@@ -38,29 +42,3 @@ class Queries(BaseQueries):
         "    delivery_id=EXCLUDED.delivery_id;"
     )
     DELETE = "DELETE FROM orders_latest WHERE (portfolio_id, asset_id) IN (VALUES %s);"
-    APPEND_LOG = (
-        "INSERT INTO orders_latest_event_log ("
-        "    event_type,"
-        "    curr_portfolio_id, "
-        "    curr_side, "
-        "    curr_asset_id_type, "
-        "    curr_asset_id, "
-        "    curr_order_ts, "
-        "    curr_target_wgt, "
-        "    curr_real_wgt, "
-        "    curr_quantity, "
-        "    curr_notional, "
-        "    curr_hash, event_id, delivery_id,"
-        "    prev_portfolio_id, "
-        "    prev_side, "
-        "    prev_asset_id_type, "
-        "    prev_asset_id, "
-        "    prev_order_ts, "
-        "    prev_target_wgt, "
-        "    prev_real_wgt, "
-        "    prev_quantity, "
-        "    prev_notional, "
-        "    prev_hash, prev_event_id, prev_delivery_id,"
-        "    mask"
-        ") VALUES %s;"
-    )

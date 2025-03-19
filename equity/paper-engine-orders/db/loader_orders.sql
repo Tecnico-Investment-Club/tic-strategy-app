@@ -1,8 +1,6 @@
 CREATE TABLE loader_orders (
     delivery_id                             BIGINT,
-    last_read_delivery                      BIGINT NOT NULL,
-    row_creation                            TIMESTAMP NOT NULL,
-    summary                                 JSONB,
+    delivery_ts                             TIMESTAMP NOT NULL,
     runtime                                 INTERVAL,
 
     PRIMARY KEY(delivery_id)

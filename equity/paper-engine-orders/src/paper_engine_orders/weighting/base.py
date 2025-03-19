@@ -33,7 +33,7 @@ class BaseWeight(ABC):
         """Initializes weighting class."""
 
     @abstractmethod
-    def get_target_weights(self, records: List) -> None:
+    def get_target_weights(self) -> None:
         """Get target weights for the weighting scheme."""
 
     @abstractmethod

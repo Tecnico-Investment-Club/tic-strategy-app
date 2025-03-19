@@ -1,5 +1,5 @@
 """Weighting scheme implementation."""
 
-from .equal import EqualWeight
+from .weighting import Weighting
 
-__all__ = ["EqualWeight"]
+__all__ = ["Weighting"]

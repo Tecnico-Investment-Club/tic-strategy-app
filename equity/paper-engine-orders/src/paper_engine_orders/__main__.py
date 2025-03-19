@@ -29,17 +29,17 @@ import pytz
 from paper_engine_orders._types import File, Key, Keys, Record
 import paper_engine_orders.broker as broker
 import paper_engine_orders.model as model
-from paper_engine_orders.model.base import EventLog, State
+from paper_engine_orders.model import OrdersLatest
+from paper_engine_orders.model.base import State
 from paper_engine_orders.model.entity import Entity
-from paper_engine_orders.model.event_type import EventType
 import paper_engine_orders.model.source_model as source_model
 from paper_engine_orders.persistance import source, target
 import paper_engine_orders.queries as queries
 from paper_engine_orders.queries.base import BaseQueries
 import paper_engine_orders.queries.source_queries as source_queries
 from paper_engine_orders.queries.source_queries import StrategyQueries
-import paper_engine_orders.weighting as weighting
-from paper_engine_orders.weighting.base import BaseWeight
+from paper_engine_orders.weighting import Weighting
+
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
@@ -90,13 +90,6 @@ class Loader:
         Entity.ORDERS_CONFIG: model.OrdersConfig,
         Entity.ORDERS_CONTROL: model.OrdersControl,
     }
-    _event_log: Dict[Entity, Type[EventLog]] = {
-        Entity.ORDERS: model.OrdersLog,
-        Entity.ORDERS_LATEST: model.OrdersLatestLog,
-        Entity.ORDERS_CONFIG: model.OrdersConfigLog,
-        Entity.ORDERS_CONTROL: model.OrdersControlLog,
-    }
-    _weights: Dict[str, Type[BaseWeight]] = {"equal": weighting.EqualWeight}
 
     def setup(self, args: argparse.Namespace) -> None:
         """Prepares loader components.
@@ -122,7 +115,6 @@ class Loader:
         self._account_id = hashlib.sha256(
             (args.api_key + args.secret_key).encode("utf-8")
         ).hexdigest()
-
 
         self._portfolio_params = {
             "portfolio_type": args.portfolio_type,
@@ -204,25 +196,17 @@ class Loader:
             logger.info("No new decision for the strategy.")
             return
 
-        delivery_ids_read = list(set([e[2] for e in new_decisions_metadata]))
-        if len(delivery_ids_read) > 1:
-            logger.warning("More than 1 delivery read???")
-            return
-        latest_decision_delivery_id = delivery_ids_read[0]
-
         orders_records: File = []
         control_records: File = []
         config_records: File = []
         for decision_metadata in new_decisions_metadata:
             portfolio_id = decision_metadata[0]
             strategy_id = decision_metadata[1]
+            latest_decision_delivery_id = decision_metadata[3]
             latest_decision_datadate = decision_metadata[3]
 
             portfolio_hash = self.get_portfolio_hash(strategy_id)
-
-            strategy_records = self.get_latest_decision(
-                strategy_id, latest_decision_delivery_id
-            )
+            strategy_records = self.get_latest_decision(strategy_id)
 
             asset_ids = [s.asset_id for s in strategy_records]
             tradable_asset_ids = self._broker.check_tradable(asset_ids)
@@ -231,19 +215,21 @@ class Loader:
             ]
 
             current_positions = self._broker.get_positions()
-            closed_positions = []
-            if current_positions:
-                closed_positions = [s for s in strategy_records if s.event_type == "REMOVE"]
-            open_positions = [s for s in strategy_records if s.event_type != "REMOVE"]
 
             # CLOSE POSITIONS
+            closed_symbols = []
+            if current_positions:
+                current_symbols = list(current_positions.keys())
+                strategy_symbols = [s.asset_id for s in strategy_records]
+                closed_symbols = [s for s in current_symbols if s not in strategy_symbols]
             closed_records = []
-            if closed_positions:
-                closed_tickers = [p.asset_id for p in closed_positions]
-                closed_records = self._broker.close_positions(portfolio_id, closed_tickers)
+            if closed_symbols:
+                closed_records = self._broker.close_positions(portfolio_id, closed_symbols)
 
-            long_porfolio = [p for p in open_positions if p.decision == 1]
-            long_asset_ids = [p.asset_id for p in long_porfolio]
+            open_positions = [s for s in strategy_records if s.asset_id not in closed_symbols]
+
+            long_portfolio = [p for p in open_positions if p.decision == 1]
+            long_asset_ids = [p.asset_id for p in long_portfolio]
 
             short_portfolio = [
                 p
@@ -268,13 +254,12 @@ class Loader:
             long_capital = account_capital
             short_capital = Decimal("0")
 
-            wgt_method = self._portfolio_params["wgt_method"].lower()
-            long_weighting = self._weights[wgt_method].setup(
-                self._broker, long_capital, long_porfolio, current_positions
-            ) if long_porfolio else None
-            short_weighting = self._weights[wgt_method].setup(
+            long_weighting = Weighting.setup(
+                self._broker, long_capital, long_portfolio, current_positions
+            ) if long_portfolio and long_capital > 0 else None
+            short_weighting = Weighting.setup(
                 self._broker, short_capital, unique_short_portfolio, current_positions
-            ) if unique_short_portfolio else None
+            ) if unique_short_portfolio and short_capital > 0 else None
 
             long_orders = long_weighting.get_orders_params() if long_weighting else {"buy": [], "sell": []}
             short_orders = short_weighting.get_orders_params() if short_weighting else {"buy": [], "sell": []}
@@ -304,7 +289,9 @@ class Loader:
         delivery_id: int = self._target.get_next_delivery_id()
         delivery: Delivery = {
             Entity.ORDERS: self.process(
-                delivery_id=delivery_id, entity=Entity.ORDERS, file=orders_records
+                delivery_id=delivery_id,
+                entity=Entity.ORDERS,
+                file=orders_records,
             ),
             Entity.ORDERS_LATEST: self.process(
                 delivery_id=delivery_id,
@@ -327,7 +314,6 @@ class Loader:
         if not self._dry_run:
             self.persist_delivery(
                 delivery_id=delivery_id,
-                last_read_delivery=latest_decision_delivery_id,
                 start_time=start_time,
                 delivery=delivery,
             )
@@ -396,13 +382,11 @@ class Loader:
 
         return res
 
-    def get_latest_decision(
-        self, strategy_id: int, delivery_id: int
-    ) -> List[source_model.Strategy]:
+    def get_latest_decision(self, strategy_id: int) -> List[source_model.Strategy]:
         """Get latest state of strategy."""
         raw_records = self._source.get_file(
-            query=source_queries.StrategyQueries.LOAD_LATEST_EVENTS,
-            variable=(strategy_id, delivery_id),
+            query=source_queries.StrategyQueries.LOAD_LATEST,
+            variable=(strategy_id,),
         )
         strategy_records = [source_model.Strategy.from_source(r) for r in raw_records]
 
@@ -439,7 +423,7 @@ class Loader:
 
         return config_record
 
-    def process(self, delivery_id: int, entity: Entity, file: File) -> Events:
+    def process(self, delivery_id: int, entity: Entity, file: File) -> Dict:
         """Processes entity records present in delivery.
 
         Args:
@@ -448,8 +432,7 @@ class Loader:
             file: Entity records.
 
         Returns:
-            A dictionary with EventType (CREATE, AMEND, REMOVE) as key and a list
-            containing the event logs for each event type as value.
+            A dictionary with records and keys to remove.
         """
         logger.info(f"Delivery {delivery_id}: processing {entity}...")
 
@@ -459,172 +442,30 @@ class Loader:
         # previous state
         keys: Keys = state_type.list_ids_from_source(records=file)
         # fetch records from state with keys
-        prev_state: List[Tuple] = self._target.get_current_state(
-            query=query.LOAD_STATE, args=keys
-        )
-        prev_records: Dict[Key, State] = {}
-        for record in prev_state:
-            state = state_type.from_target(record=record)
-            prev_records[state.key] = state
+        if entity == Entity.ORDERS_LATEST:
+            prev_state: List[Tuple] = self._target.get_current_state(
+                query=query.LOAD_FULL_STATE
+            )
+        else:
+            prev_state: List[Tuple] = self._target.get_current_state(
+                query=query.LOAD_STATE, args=keys
+            )
+        prev_keys: List[Key] = [state_type.from_target(record=r).key for r in prev_state]
 
         # current state
         curr_records: List[State] = [
             state_type.from_source(record=record) for record in file
         ]
+        curr_keys: List[Key] = [r.key for r in curr_records]
+        keys_to_remove: List[Key] = list(set(prev_keys) - set(curr_keys))
 
         del file
 
-        # compute events
-        events: Events = self.compute_events(
-            delivery_id=delivery_id,
-            entity=entity,
-            curr=curr_records,
-            prev=prev_records,
-        )
-
-        return events
-
-    def compute_events(
-        self,
-        delivery_id: int,
-        entity: Entity,
-        curr: List[State],
-        prev: Dict[Key, State],
-    ) -> Events:
-        """Computes change events between current state and delivery file records.
-
-        Args:
-            delivery_id: Delivery id.
-            entity: Entity.
-            curr: Entity records in delivery.
-            prev: Entity records in system.
-
-        Returns:
-            A dictionary with EventType (CREATE, AMEND, REMOVE) as key and a list
-            containing the event logs for each event type as value.
-        """
-        state_type: Type[State] = self._state[entity]
-        event_log_type: Type[EventLog] = self._event_log[entity]
-
-        # events
-        create: List[EventLog] = []
-        amend: List[EventLog] = []
-        remove: List[EventLog] = []
-
-        # in memory delivery variables
-        # needed to compute events faster
-        events: Dict[Key, State] = prev
-
-        it_event_id = self._target.get_next_event_id(n=len(curr))
-
-        for i, item in enumerate(curr):
-            if i % 100_000 == 0:
-                logger.info(
-                    f"Delivery {delivery_id}: {entity} processed {i}/{len(curr)}..."
-                )
-
-            # in case multiple actions for same primary key exist in same delivery
-            if item.key in events.keys():
-                # get latest update to compare state
-                prev_item = self.find(needle=item.key, haystack=events)
-
-                # if last update is equal to current version to update just jump
-                if prev_item is not None and item.hash == prev_item.hash:
-                    continue
-
-                # assign delivery_id to current state
-                item.delivery_id = delivery_id
-                # assign event_id to current_state
-                item.event_id = next(it_event_id)
-
-                event_log = event_log_type.from_states(
-                    event_type=EventType.AMEND, curr=item, prev=prev_item
-                )
-                amend.append(event_log)
-                events[item.key] = item
-                continue
-
-            if item.key not in events.keys():
-                # assign delivery_id to current state
-                item.delivery_id = delivery_id
-                # assign event_id to current_state
-                item.event_id = next(it_event_id)
-
-                event_log = event_log_type.from_states(
-                    event_type=EventType.CREATE, curr=item, prev=None
-                )
-                create.append(event_log)
-                events[item.key] = item
-                continue
-
-        prev_keys: Set[Key] = set(events.keys()) - set(item.key for item in curr)
-        it_event_id = self._target.get_next_event_id(n=len(prev_keys))
-
-        for prev_key in prev_keys:
-            # if prev_item.key not in curr_keys:
-            item = state_type.removal_instance(
-                event_id=next(it_event_id),
-                delivery_id=delivery_id,
-                key=prev_key,
-            )
-            prev_item = self.find(needle=prev_key, haystack=events)
-            event_log = event_log_type.from_states(
-                event_type=EventType.REMOVE, curr=item, prev=prev_item
-            )
-            remove.append(event_log)
-
-        del it_event_id
-
-        return {
-            EventType.CREATE: create,
-            EventType.AMEND: amend,
-            EventType.REMOVE: remove,
-        }
-
-    @staticmethod
-    def find(needle: Key, haystack: Dict[Key, State]) -> State:
-        """Given a needle searches the haystack and returns the match.
-
-        Args:
-            needle: key of entity to look for.
-            haystack: list of objects where to look for.
-
-        Returns:
-            Matching object if one exists.
-        """
-        return haystack[needle]
-
-    @staticmethod
-    def summarizer(delivery: Delivery) -> Summary:
-        """Makes statistical summary of events per entity within a delivery.
-
-        Args:
-            delivery: A dictionary with Entity as key and another dictionary
-                with Events as value.
-                Each Event dictionary is composed by EventType (CREATE, AMEND,
-                REMOVE) as key and a list containing the event logs for each
-                event type as value.
-
-        Returns:
-            A summary, with the same structure as the input but instead of
-            having a list structure with events, is the length of the list.
-        """
-        summary = {}
-        for entity, events in delivery.items():
-            event_cnt = {}
-            for event_type, event_logs in events.items():
-                if event_logs:
-                    event_cnt[event_type] = len(event_logs)
-
-            if event_cnt:
-                summary[entity] = event_cnt
-
-        return summary
+        return {"records": curr_records, "keys_to_remove": keys_to_remove}
 
     def persist_delivery(
         self,
         delivery_id: int,
-        last_read_delivery: int,
         start_time: datetime,
         delivery: Delivery,
     ) -> None:
@@ -632,30 +473,23 @@ class Loader:
 
         Args:
             delivery_id: Delivery id.
-            last_read_delivery: Last read delivery ID.
             start_time: Time delivery started.
             delivery: Delivery to process.
         """
         self._target.begin_transaction()
 
-        for entity, events in delivery.items():
-            self.persist_postgres(entity=entity, events=events)
-
-            logger.info(
-                f"Delivery {delivery_id}: {entity} ("
-                f"create: {len(events[EventType.CREATE])}, "
-                f"amend: {len(events[EventType.AMEND])}, "
-                f"remove: {len(events[EventType.REMOVE])})."
+        for entity, content in delivery.items():
+            self.persist_postgres(
+                entity=entity,
+                records=content["records"],
+                keys_to_remove=content["keys_to_remove"]
             )
 
-        summary = self.summarizer(delivery=delivery)
         end_time: datetime = datetime.utcnow()
         self._target.persist_delivery(
             args={
                 "delivery_id": delivery_id,
-                "last_read_delivery": last_read_delivery,
-                "row_creation": datetime.utcnow(),
-                "summary": json.dumps(summary),
+                "delivery_ts": datetime.utcnow(),
                 "runtime": end_time - start_time,
             }
         )
@@ -663,71 +497,38 @@ class Loader:
         self._target.commit_transaction()
         logger.info(f"Delivery {delivery_id}: persisted to postgres.")
 
-        logger.info(f"Delivery {delivery_id}: persisted {summary}.")
-
-    def persist_postgres(self, entity: Entity, events: Events) -> None:
+    def persist_postgres(self, entity: Entity, records: List[State], keys_to_remove: Keys) -> None:
         """Persists records of entity to postgres.
 
         Args:
             entity: Entity which events are going to be persisted.
-            events: Events (CREATE, AMEND, REMOVE) to persist.
+            records: Records to persist.
+            keys_to_remove: Keys to remove.
         """
         query: BaseQueries = self._queries[entity]
 
         # if multiple instructions have the same primary key
         # db instructions can't be in batch
-        batch_create = len(set(e.curr.key for e in events[EventType.CREATE])) == len(
-            events[EventType.CREATE]
-        )
-        batch_amend = len(set(e.curr.key for e in events[EventType.AMEND])) == len(
-            events[EventType.AMEND]
-        )
+        batch_records = len(set(r.key for r in records)) == len(records)
 
-        # CREATE
-        self._target.execute(
-            instruction=query.APPEND_LOG,
-            logs=[e.as_record() for e in events[EventType.CREATE]],
-        )
-        if batch_create:
+        # PERSIST RECORDS
+        if batch_records:
             self._target.execute(
                 instruction=query.UPSERT,
-                logs=[e.curr.as_tuple() for e in events[EventType.CREATE]],
+                logs=[r.as_tuple() for r in records],
             )
         else:
-            for e in events[EventType.CREATE]:
+            for r in records:
                 self._target.execute(
                     instruction=query.UPSERT,
-                    logs=[e.curr.as_tuple()],
-                )
-
-        # AMEND
-        self._target.execute(
-            instruction=query.APPEND_LOG,
-            logs=[e.as_record() for e in events[EventType.AMEND]],
-        )
-        if batch_amend:
-            self._target.execute(
-                instruction=query.UPSERT,
-                logs=[e.curr.as_tuple() for e in events[EventType.AMEND]],
-            )
-        else:
-            for e in events[EventType.AMEND]:
-                self._target.execute(
-                    instruction=query.UPSERT,
-                    logs=[e.curr.as_tuple()],
+                    logs=[r.as_tuple()],
                 )
 
         # REMOVE
         self._target.execute(
-            instruction=query.APPEND_LOG,
-            logs=[e.as_record() for e in events[EventType.REMOVE]],
-        )
-        self._target.execute(
             instruction=query.DELETE,
-            logs=[e.curr.key for e in events[EventType.REMOVE]],
+            logs=[k for k in keys_to_remove],
         )
-
-
 
 
 def parse_args() -> argparse.Namespace:

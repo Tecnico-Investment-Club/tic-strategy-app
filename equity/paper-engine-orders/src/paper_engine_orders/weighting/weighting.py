@@ -13,7 +13,7 @@ from paper_engine_orders.weighting.base import BaseWeight
 logger = logging.getLogger(__name__)
 
 
-class EqualWeight(BaseWeight):
+class Weighting(BaseWeight):
     """Equal weighting scheme class."""
 
     capital: Decimal
@@ -36,7 +36,7 @@ class EqualWeight(BaseWeight):
         capital: Decimal,
         strategy_records: List[Strategy],
         current_positions: Dict,
-    ) -> "EqualWeight":
+    ) -> "Weighting":
         """Setup weighting scheme for the portfolio."""
         res = cls()
         res.capital = capital
@@ -48,12 +48,9 @@ class EqualWeight(BaseWeight):
 
         return res
 
-    def get_target_weights(self, records: List) -> None:
+    def get_target_weights(self) -> None:
         """Get weighting method target weights."""
-        wgt = Decimal(1 / len(records))
-        wgts = {s.asset_id: wgt for s in records}
-
-        self.target_weights = wgts
+        self.target_weights = {s.asset_id: s.target_wgt for s in self.strategy_records}
 
     def get_weights(self) -> None:
         """Get portfolio weights."""
@@ -76,7 +73,7 @@ class EqualWeight(BaseWeight):
                 available_strat_records.append(s)
         self.strategy_records = available_strat_records
 
-        self.get_target_weights(self.strategy_records)
+        self.get_target_weights()
 
         used_capital = 0
         notional = {}

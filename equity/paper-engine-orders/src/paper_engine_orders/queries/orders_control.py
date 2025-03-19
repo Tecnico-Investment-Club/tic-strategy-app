@@ -26,19 +26,3 @@ class Queries(BaseQueries):
         "    delivery_id=EXCLUDED.delivery_id;"
     )
     DELETE = "DELETE FROM orders_control WHERE portfolio_id IN (VALUES %s);"
-    APPEND_LOG = (
-        "INSERT INTO orders_control_event_log ("
-        "    event_type,"
-        "    curr_portfolio_id, "
-        "    curr_last_read_delivery_id, "
-        "    curr_last_decision_datadate, "
-        "    curr_last_rebal_ts,"
-        "    curr_hash, event_id, delivery_id,"
-        "    prev_portfolio_id, "
-        "    prev_last_read_delivery_id, "
-        "    prev_last_decision_datadate, "
-        "    prev_last_rebal_ts,"
-        "    prev_hash, prev_event_id, prev_delivery_id,"
-        "    mask"
-        ") VALUES %s;"
-    )

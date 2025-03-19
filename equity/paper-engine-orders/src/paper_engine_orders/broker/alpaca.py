@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class Alpaca(Broker):
-    """Alpaca conncetion class."""
+    """Alpaca connection class."""
 
     latest_order = None
     positions: List[Position]

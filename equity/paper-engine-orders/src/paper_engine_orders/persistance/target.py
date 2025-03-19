@@ -140,7 +140,7 @@ class Target(object):
             yield event_id[0]
             event_id = cursor.fetchone()
 
-    def get_current_state(self, query: str, args: Keys) -> List[Tuple]:
+    def get_current_state(self, query: str, args: Keys=None) -> List[Tuple]:
         """Gets current state of entity records.
 
         Args:
@@ -152,7 +152,12 @@ class Target(object):
             Next delivery id.
         """
         cursor = self.cursor
-        records = execute_values(cur=cursor, sql=query, argslist=args, fetch=True)
+        if args:
+            records = execute_values(cur=cursor, sql=query, argslist=args, fetch=True)
+        else:
+            cursor = self.cursor
+            cursor.execute(query=query, vars=args)
+            records = cursor.fetchall()
 
         return records
 
@@ -184,29 +189,3 @@ class Target(object):
         if logs:
             cursor = self.cursor
             execute_values(cur=cursor, sql=instruction, argslist=logs)
-
-    def get_next_ibkr_order_id(self) -> int:
-        """Gets next ibkr order id.
-
-        Returns:
-            Next ibkr order id.
-        """
-        cursor = self.cursor
-        # ALTER SEQUENCE delivery_id_orders_seq RESTART;
-        cursor.execute("SELECT NEXTVAL('ibkr_order_id_seq');")
-        res = cursor.fetchone()
-
-        return res[0]
-
-    def get_next_ibkr_request_id(self) -> int:
-        """Gets next ibkr order id.
-
-        Returns:
-            Next ibkr order id.
-        """
-        cursor = self.cursor
-        # ALTER SEQUENCE delivery_id_orders_seq RESTART;
-        cursor.execute("SELECT NEXTVAL('ibkr_request_id_seq');")
-        res = cursor.fetchone()
-
-        return res[0]
