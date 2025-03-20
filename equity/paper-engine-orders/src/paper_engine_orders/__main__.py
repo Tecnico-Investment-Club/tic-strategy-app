@@ -58,8 +58,8 @@ class Loader:
     _source: source.Source
     _target: target.Target
     _broker: broker.Alpaca
-    _notifications: bool
     _dry_run: bool
+    _dry_orders: bool
     _min_sleep: int
     _max_sleep: int
     _portfolio_name: str
@@ -91,8 +91,8 @@ class Loader:
 
         Connects to source, all possible targets and notification components.
         """
-        self._notifications = args.notifications
         self._dry_run = args.dry_run
+        self._dry_orders = args.dry_orders
         self._min_sleep = args.min_sleep
         self._max_sleep = args.max_sleep
 
@@ -176,7 +176,7 @@ class Loader:
         market_open = self.check_market_open(US_MARKET_OPEN, US_MARKET_CLOSE, curr_time)
         if not market_open:
             logger.info("Market is not open.")
-            return
+            # return
 
         new_decisions_metadata = self.check_new_decisions()
         if not new_decisions_metadata:
@@ -189,7 +189,7 @@ class Loader:
         for decision_metadata in new_decisions_metadata:
             portfolio_id = decision_metadata[0]
             strategy_id = decision_metadata[1]
-            latest_decision_delivery_id = decision_metadata[3]
+            latest_decision_delivery_id = decision_metadata[2]
             latest_decision_datadate = decision_metadata[3]
 
             strategy_records = self.get_latest_decision(strategy_id)
@@ -257,8 +257,9 @@ class Loader:
             closing_orders = long_orders["sell"] + short_orders["buy"]
             opening_orders = long_orders["buy"] + short_orders["sell"]
 
-            self._broker.submit_orders(closing_orders)
-            self._broker.submit_orders(opening_orders)
+            if not self._dry_orders:
+                self._broker.submit_orders(closing_orders)
+                self._broker.submit_orders(opening_orders)
 
             long_records = long_weighting.get_orders_records(portfolio_id) if long_weighting else []
             short_records = short_weighting.get_orders_records(portfolio_id) if short_weighting else []
@@ -424,6 +425,12 @@ class Loader:
         curr_records: List[State] = [
             state_type.from_source(record=record) for record in file
         ]
+
+        it_event_id = self._target.get_next_event_id(n=len(curr_records))
+        for r, event_id in zip(curr_records, it_event_id):
+            r.event_id = event_id
+            r.delivery_id = delivery_id
+
         curr_keys: List[Key] = [r.key for r in curr_records]
         keys_to_remove: List[Key] = list(set(prev_keys) - set(curr_keys))
 
@@ -550,6 +557,22 @@ def parse_args() -> argparse.Namespace:
         help="Enable data persistence (default).",
     )
     parser.set_defaults(dry_run=ast.literal_eval(os.environ.get("DRY_RUN", "False")))
+
+    parser.add_argument(
+        "--dry-orders",
+        dest="dry_orders",
+        action="store_true",
+        required=False,
+        help="Disable order placement.",
+    )
+    parser.add_argument(
+        "--no-dry-orders",
+        dest="dry_orders",
+        action="store_false",
+        required=False,
+        help="Enable order placement.",
+    )
+    parser.set_defaults(dry_orders=ast.literal_eval(os.environ.get("DRY_ORDERS", "True")))
 
     parser.add_argument(
         "--target",

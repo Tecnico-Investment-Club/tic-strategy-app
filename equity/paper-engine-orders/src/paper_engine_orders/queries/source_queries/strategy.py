@@ -20,6 +20,6 @@ class Queries(BaseSourceQueries):
         "       decision_ts,"
         "       target_wgt,"
         "       decision "
-        "FROM paper_engine.strategy_latest_event_log "
+        "FROM paper_engine.strategy_latest "
         "WHERE strategy_id = %s;"
     )

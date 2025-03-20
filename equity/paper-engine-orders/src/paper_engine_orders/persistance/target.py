@@ -169,11 +169,11 @@ class Target(object):
         """
         query = (
             "INSERT INTO loader_orders ("
-            "delivery_id, last_read_delivery, "
-            "row_creation, summary, runtime"
+            "delivery_id, "
+            "delivery_ts, runtime"
             ") VALUES ("
-            "%(delivery_id)s, %(last_read_delivery)s, "
-            "%(row_creation)s, %(summary)s, %(runtime)s"
+            "%(delivery_id)s, "
+            "%(delivery_ts)s, %(runtime)s"
             ");"
         )
         cursor = self.cursor

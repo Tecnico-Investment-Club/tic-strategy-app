@@ -3,8 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-from paper_engine_orders._types import Key, Keys, Message, Record
-from paper_engine_orders.model.event_type import EventType
+from paper_engine_orders._types import Key, Keys, Record
 
 
 class State(ABC):
