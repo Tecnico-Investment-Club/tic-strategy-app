@@ -1,0 +1,1 @@
+CREATE SEQUENCE delivery_id_portfolio_seq;
