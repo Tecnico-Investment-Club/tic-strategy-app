@@ -1,1 +1,0 @@
-CREATE SEQUENCE event_id_portfolio_seq;

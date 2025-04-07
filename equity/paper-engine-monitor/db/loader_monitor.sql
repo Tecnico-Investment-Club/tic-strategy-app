@@ -5,4 +5,4 @@ CREATE TABLE loader_monitor (
 
     PRIMARY KEY(delivery_id)
 );
-CREATE INDEX idx_loader_portfolio_row_creation ON loader_portfolio(row_creation);
+CREATE INDEX idx_loader_monitor_delivery_ts ON loader_monitor(delivery_ts);

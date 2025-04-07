@@ -5,4 +5,4 @@ CREATE TABLE loader_orders (
 
     PRIMARY KEY(delivery_id)
 );
-CREATE INDEX idx_loader_orders_row_creation ON loader_orders(row_creation);
+CREATE INDEX idx_loader_orders_delivery_ts ON loader_orders(delivery_ts);

@@ -89,7 +89,7 @@ class Target(object):
         """
         cursor = self.cursor
         # ALTER SEQUENCE delivery_id_portfolio_seq RESTART;
-        cursor.execute("SELECT NEXTVAL('delivery_id_portfolio_seq');")
+        cursor.execute("SELECT NEXTVAL('delivery_id_monitor_seq');")
         res = cursor.fetchone()
 
         return res[0]
@@ -106,7 +106,7 @@ class Target(object):
         cursor = self.cursor
         # ALTER SEQUENCE event_id_delivery_s3_seq RESTART;
         cursor.execute(
-            "SELECT NEXTVAL('event_id_portfolio_seq') "
+            "SELECT NEXTVAL('event_id_monitor_seq') "
             "FROM GENERATE_SERIES(1, %(n_event_ids)s);",
             vars={"n_event_ids": n},
         )
@@ -144,7 +144,7 @@ class Target(object):
             args: Delivery metadata to persist.
         """
         query = (
-            "INSERT INTO loader_orders ("
+            "INSERT INTO loader_monitor ("
             "delivery_id, "
             "delivery_ts, runtime"
             ") VALUES ("
