@@ -7,6 +7,11 @@ class Queries(BaseQueries):
     """Portfolio Latest queries."""
 
     LOAD_STATE = "SELECT * FROM portfolio_latest WHERE (portfolio_id) IN (VALUES %s);"
+
+    LOAD_FULL_STATE = (
+        "SELECT * FROM portfolio_latest;"
+    )
+
     UPSERT = (
         "INSERT INTO portfolio_latest ("
         "    portfolio_id, "

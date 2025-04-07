@@ -116,7 +116,7 @@ class Target(object):
             yield event_id[0]
             event_id = cursor.fetchone()
 
-    def get_current_state(self, query: str, args: Keys) -> List[Tuple]:
+    def get_current_state(self, query: str, args: Keys = None) -> List[Tuple]:
         """Gets current state of entity records.
 
         Args:
@@ -128,7 +128,12 @@ class Target(object):
             Next delivery id.
         """
         cursor = self.cursor
-        records = execute_values(cur=cursor, sql=query, argslist=args, fetch=True)
+        if args:
+            records = execute_values(cur=cursor, sql=query, argslist=args, fetch=True)
+        else:
+            cursor = self.cursor
+            cursor.execute(query=query, vars=args)
+            records = cursor.fetchall()
 
         return records
 
@@ -139,12 +144,12 @@ class Target(object):
             args: Delivery metadata to persist.
         """
         query = (
-            "INSERT INTO loader_portfolio ("
+            "INSERT INTO loader_orders ("
             "delivery_id, "
-            "row_creation, summary, runtime"
+            "delivery_ts, runtime"
             ") VALUES ("
             "%(delivery_id)s, "
-            "%(row_creation)s, %(summary)s, %(runtime)s"
+            "%(delivery_ts)s, %(runtime)s"
             ");"
         )
         cursor = self.cursor
