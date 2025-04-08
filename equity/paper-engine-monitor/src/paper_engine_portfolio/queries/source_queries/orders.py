@@ -1,15 +1,15 @@
-"""Strategy Latest queries."""
+"""Orders Latest queries."""
 
 from paper_engine_portfolio.queries.source_queries.base import BaseSourceQueries
 
 
 class Queries(BaseSourceQueries):
-    """SOURCE Astec DP5 queries."""
+    """SOURCE orders latest queries."""
 
     LOAD_INITIAL_PORTFOLIO_VALUES = (
-        "SELECT SUM(notional) FILTER (WHERE side = '1') - SUM(notional) FILTER (WHERE side = '-1'), "
-        "       SUM(notional) FILTER (WHERE side = '1'), "
-        "       SUM(notional) FILTER (WHERE side = '-1') "
+        "SELECT COALESCE(SUM(notional) FILTER (WHERE side = '1'), 0) - COALESCE(SUM(notional) FILTER (WHERE side = '-1'), 0), "
+        "       COALESCE(SUM(notional) FILTER (WHERE side = '1'), 0), "
+        "       COALESCE(SUM(notional) FILTER (WHERE side = '-1'), 0) "
         "FROM orders "
         "WHERE portfolio_id = %(portfolio_id)s "
         "AND order_ts = ( "

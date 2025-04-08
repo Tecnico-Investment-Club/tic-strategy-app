@@ -82,7 +82,6 @@ class Loader:
 
         Connects to source, all possible targets and notification components.
         """
-        self._notifications = args.notifications
         self._dry_run = args.dry_run
         self._min_sleep = args.min_sleep
         self._max_sleep = args.max_sleep
@@ -286,9 +285,7 @@ class Loader:
 
         rtn = self.compute_return(curr_portfolio_value, prev_portfolio_value)
         long_rtn = self.compute_return(curr_long_value, prev_long_value)
-        short_rtn = self.compute_return(
-            curr_short_value, prev_short_value, side="SHORT"
-        )
+        short_rtn = self.compute_return(curr_short_value, prev_short_value, side="SHORT")
 
         cum_rtn = self.compute_cum_return(prev_cum_rtn, rtn)
         long_cum_rtn = self.compute_cum_return(prev_long_cum_rtn, long_rtn)
@@ -318,10 +315,13 @@ class Loader:
         curr_value: Decimal, prev_value: Decimal, side: str = None
     ) -> Decimal:
         """Compute return from portfolio values."""
-        if side == "SHORT":
-            return -((curr_value - prev_value) / prev_value)
+        if curr_value and prev_value:
+            if side == "SHORT":
+                return -((curr_value - prev_value) / prev_value)
+            else:
+                return (curr_value - prev_value) / prev_value
         else:
-            return (curr_value - prev_value) / prev_value
+            return Decimal(0)
 
     @staticmethod
     def compute_cum_return(prev_cum_rtn: Decimal, rtn: Decimal) -> Decimal:

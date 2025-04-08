@@ -46,9 +46,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# TODO: IMPLEMENT DYNAMIC CHANGE FROM ET TO EST TIME (?)
-US_MARKET_OPEN = dt_time(hour=14, minute=30, second=0, tzinfo=pytz.utc)
-US_MARKET_CLOSE = dt_time(hour=21, minute=0, second=0, tzinfo=pytz.utc)
+us_market_tz = pytz.timezone("America/New_York")
+US_MARKET_OPEN = dt_time(hour=9, minute=30, tzinfo=us_market_tz)
+US_MARKET_CLOSE = dt_time(hour=16, minute=0, tzinfo=us_market_tz)
 
 
 class Loader:

@@ -34,9 +34,7 @@ class Alpaca(Broker):
         elif side == "SHORT":
             return -Decimal(account.short_market_value)
         else:
-            return Decimal(account.long_market_value) - Decimal(
-                account.short_market_value
-            )
+            return Decimal(account.long_market_value) - Decimal(account.short_market_value)
 
     def get_all_positions(self) -> Dict:
         """Get ticker: quantity dict."""
