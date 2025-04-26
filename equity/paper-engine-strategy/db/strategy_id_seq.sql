@@ -1,0 +1,1 @@
+CREATE SEQUENCE strategy_id_seq;

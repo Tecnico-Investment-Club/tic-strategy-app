@@ -1,0 +1,1 @@
+CREATE SEQUENCE event_id_strategy_seq;
