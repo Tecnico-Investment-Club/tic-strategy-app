@@ -1,17 +1,19 @@
 """Strategy Config data model."""
+
 from hashlib import sha256
 import json
 import logging
 from typing import List, Optional, Tuple
 
 from paper_engine_strategy._types import Key, Keys, Record
-from paper_engine_strategy.model.base import  State
+from paper_engine_strategy.model.base import State
 
 logger = logging.getLogger(__name__)
 
 
 class StrategyConfig(State):
     """Strategy Config state."""
+
     # TODO: ADD PO STRAT PARAMS
 
     strategy_id: int  # entity key

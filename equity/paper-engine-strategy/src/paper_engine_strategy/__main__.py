@@ -23,6 +23,10 @@ from paper_engine_strategy.persistance import source, target
 import paper_engine_strategy.queries as queries
 from paper_engine_strategy.queries.base import BaseQueries
 
+from paper_engine_strategy.portfolio_optimization.po import PortfolioOptimization
+import paper_engine_strategy.portfolio_optimization.helpers.data_models as dm
+import paper_engine_strategy.portfolio_optimization.helpers.tc_optimization as tc
+
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s",
@@ -160,7 +164,6 @@ class Loader:
 
         self._strat_params["strategy_id"] = strategy_id
 
-
         # TODO: GET DATA
         logger.debug("Fetching latest data...")
         strategy_data = self.get_strategy_data(strategy_id)
@@ -211,7 +214,6 @@ class Loader:
                 delivery=delivery,
             )
 
-
         del delivery, strategy_data
 
         end_time = datetime.utcnow()
@@ -219,13 +221,50 @@ class Loader:
             f"Delivery {delivery_id}: processed ({end_time - start_time} seconds)."
         )
 
+    def run_strategy(self, closes, previous_weights=None):
+        # TODO: CONFIG VAR
+
+        functional_constraints = dm.Functional_Constraints(
+            Take_Profit=0,  # NOT USED
+            Stop_Loss=0,  # NOT USED
+            Capital_at_Risk=0.6,  # NOT USED
+            Hurst_Filter=dm.HurstFilter.STANDARD,
+            RSIFilter=dm.RSIFilter.STANDARD,
+            Hurst_Exponents_Period=180,
+            MACD_Short_Window=12,
+            MACD_Long_Window=26,
+            Bollinger_Window=20,
+            RSI_Window=5,
+        )
+
+        rebalance_constraints = dm.Rebalance_Constraints(
+            Turnover_Constraint=0,  # NOT USED
+            Transaction_Cost=0.01,
+            distance_method=tc.DistanceMethod.NORMALIZED_EUCLIDEAN,
+        )
+
+        params = {
+            "best_delta": 0.124,
+            "mom_type": dm.Momentum_Type.Cumulative_Returns,
+            "mean_rev_type": dm.Mean_Rev_Type.RSI,
+            "rebalancing_period": dm.Rebalancing_Period.daily,
+            "functional_constraints": functional_constraints,
+            "rebalance_constraints": rebalance_constraints,
+            "mom_days": 30,
+        }
+
+        p = PortfolioOptimization(
+            **params,
+            closes=closes,
+            previous_weights=previous_weights
+        )
+        p.get_weights()
+
     def get_strat_hash(self) -> str:
         """Get portfolio_optimization hash from portfolio_optimization params."""
         # TODO: ADD PO STRAT PARAMS
         strategy_hash = hashlib.sha256(
-            (
-                self._strat_params["strategy_name"].upper()
-            ).encode("utf-8")
+            (self._strat_params["strategy_name"].upper()).encode("utf-8")
         ).hexdigest()
 
         return strategy_hash
@@ -269,7 +308,9 @@ class Loader:
             prev_state: List[Tuple] = self._target.get_current_state(
                 query=query.LOAD_STATE, args=keys
             )
-        prev_keys: List[Key] = [state_type.from_target(record=r).key for r in prev_state]
+        prev_keys: List[Key] = [
+            state_type.from_target(record=r).key for r in prev_state
+        ]
 
         # current state
         curr_records: List[State] = [
@@ -307,7 +348,7 @@ class Loader:
             self.persist_postgres(
                 entity=entity,
                 records=content["records"],
-                keys_to_remove=content["keys_to_remove"]
+                keys_to_remove=content["keys_to_remove"],
             )
 
         end_time: datetime = datetime.utcnow()
@@ -322,7 +363,9 @@ class Loader:
         self._target.commit_transaction()
         logger.info(f"Delivery {delivery_id}: persisted to postgres.")
 
-    def persist_postgres(self, entity: Entity, records: List[State], keys_to_remove: Keys) -> None:
+    def persist_postgres(
+        self, entity: Entity, records: List[State], keys_to_remove: Keys
+    ) -> None:
         """Persists records of entity to postgres.
 
         Args:

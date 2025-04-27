@@ -33,4 +33,3 @@ class Queries(BaseQueries):
         "    delivery_id=EXCLUDED.delivery_id;"
     )
     DELETE = "DELETE FROM strategy_latest WHERE (strategy_id, asset_id_type, asset_id) IN (VALUES %s);"  # noqa: B950
-

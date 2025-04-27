@@ -15,5 +15,5 @@ class Queries(BaseSourceQueries):
         "       low_price, "
         "       close_price "
         "FROM {schema}.spot_{interval} "
-        "WHERE datadate = %s; "
+        "WHERE datadate > %s; "
     )

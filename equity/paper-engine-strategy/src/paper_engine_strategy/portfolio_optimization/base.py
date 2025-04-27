@@ -3,9 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from paper_engine_strategy._enums import TresholdType
 from paper_engine_strategy._types import File
-from paper_engine_strategy.alpha.alpha import Alpha
 
 
 class BaseStrategy(ABC):
@@ -21,6 +19,6 @@ class BaseStrategy(ABC):
         pass
 
     @abstractmethod
-    def get_weights(self, records: List[Alpha]) -> File:
+    def get_weights(self, records: List[List]) -> File:
         """Pick portfolio according to thresholds."""
         pass
