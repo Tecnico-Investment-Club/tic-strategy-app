@@ -1,10 +1,10 @@
 import pandas as pd
 
-import paper_engine_strategy.portfolio_optimization.helpers.data_analysis as analysis
-import paper_engine_strategy.portfolio_optimization.helpers.signalling as signalling
-import paper_engine_strategy.portfolio_optimization.helpers.data_models as dm
-import paper_engine_strategy.portfolio_optimization.helpers.portfolio_weights as pw
-import paper_engine_strategy.portfolio_optimization.helpers.tc_optimization as tc
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_analysis as analysis
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.signalling as signalling
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_models as dm
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.portfolio_weights as pw
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.tc_optimization as tc
 
 
 class PortfolioOptimization:

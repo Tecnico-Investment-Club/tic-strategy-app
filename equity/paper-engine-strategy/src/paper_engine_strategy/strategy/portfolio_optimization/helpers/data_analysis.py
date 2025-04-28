@@ -3,8 +3,8 @@ from datetime import datetime as dt
 import pandas as pd
 from hurst import compute_Hc
 
-import paper_engine_strategy.portfolio_optimization.helpers.indicators as indicator
-import paper_engine_strategy.portfolio_optimization.helpers.data_models as dm
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.indicators as indicator
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_models as dm
 
 """
 
@@ -21,7 +21,7 @@ def get_data_analysis(
     mean_rev_type: dm.Mean_Rev_Type,
     momentum_type: dm.Momentum_Type,
     functional_constraints: dm.Functional_Constraints,
-    momentus_days_period: int,
+    momentum_days_period: int,
     live_analysis=False,
 ):
     """
@@ -53,7 +53,7 @@ def get_data_analysis(
         if momentum_type == dm.Momentum_Type.Cumulative_Returns:
             # Mudar para o MACD real, por enquanto é o cumrets
             momentum_cumrets = indicator.momentum_n_days(
-                close_df, momentum_n_days=momentus_days_period
+                close_df, momentum_n_days=momentum_days_period
             )
 
         elif momentum_type == dm.Momentum_Type.MACD:
@@ -135,7 +135,7 @@ def get_data_analysis(
 
         if momentum_type == dm.Momentum_Type.Cumulative_Returns:
             # Mudar para o MACD real, por enquanto é o cumrets
-            momentum_cumrets = indicator.momentum_n_days(temp, momentus_days_period)
+            momentum_cumrets = indicator.momentum_n_days(temp, momentum_days_period)
 
         elif momentum_type == dm.Momentum_Type.MACD:
             macd_df = indicator.calculate_macd(

@@ -1,8 +1,7 @@
 """Source datasource."""
 
 import logging
-import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, List, Tuple
 
 import psycopg2
 from psycopg2.extensions import connection as Connection, cursor as Cursor
@@ -91,77 +90,28 @@ class Source(object):
 
         return res if res else None
 
-    def fetch(self, query: str, variable: Any = None) -> File:
-        """Execute query, fetching one record."""
-        MAX_RETRIES = 20
-        RETRY_DELAY = 1  # Adjust as needed
-
-        for attempt in range(MAX_RETRIES):
-            cursor = self.cursor
-            try:
-                if variable:
-                    cursor.execute(query, variable)
-                else:
-                    cursor.execute(query)
-                res = cursor.fetchall()
-
-                return res if res else None
-
-            except Exception as e:  # Ideally, catch a more specific exception
-                # Rollback the transaction
-                cursor.connection.rollback()
-
-                if attempt < MAX_RETRIES - 1:  # No need to sleep after the last attempt
-                    time.sleep(RETRY_DELAY)
-                    logger.debug(f"Retrying for the {attempt + 1}th attempt")
-                else:
-                    raise e  # If you've exhausted all retries, raise the exception.
-
-        # If it gets here, then all retries have been exhausted
-        raise Exception("All attempts to retrieve the file have failed after retrying.")
-
-    def get_file(self, query: str, reading_range: Dict[str, int]) -> File:
-        """Retrieves file from source based on range of event ids.
-
-        Args:
-            query: Query.
-            reading_range: Dict with the event log to start and stop reading.
-
-        Returns:
-            File from source.
-        """
-        # logger.debug(f"Last event ID persisted: {reading_range['start_at']}.")
-
+    def get_file(self, query: str, variable: Any = None) -> File:
+        """Retrieves file from source based on range of event ids."""
         cursor = self.cursor
-        cursor.execute(query=query, vars=reading_range)
+        if variable:
+            cursor.execute(query, variable)
+        else:
+            cursor.execute(query)
         res = cursor.fetchall()
 
         return res
 
     def fetch_execute(self, instruction: str, key_list: List[Tuple]) -> List[Tuple]:
-        """Fetches records of the provided keys."""
-        MAX_RETRIES = 20
-        RETRY_DELAY = 1  # Adjust as needed
+        """Fetches records of the provided keys.
 
-        for attempt in range(MAX_RETRIES):
-            # self.ping_datasource()
-            cursor = self.cursor
-            try:
-                res = execute_values(
-                    cur=cursor, sql=instruction, argslist=key_list, fetch=True
-                )
+        Args:
+            instruction: sql query.
+            key_list: list of keys.
 
-                return res
+        Returns:
+            Records with the provided keys.
+        """
+        cursor = self.cursor
+        res = execute_values(cur=cursor, sql=instruction, argslist=key_list, fetch=True)
 
-            except Exception as e:  # Ideally, catch a more specific exception
-                # Rollback the transaction
-                cursor.connection.rollback()
-
-                if attempt < MAX_RETRIES - 1:  # No need to sleep after the last attempt
-                    time.sleep(RETRY_DELAY)
-                    logger.debug(f"Retrying for the {attempt}th attempt")
-                else:
-                    raise e  # If you've exhausted all retries, raise the exception.
-
-        # If it gets here, then all retries have been exhausted
-        raise Exception("All attempts to retrieve the file have failed after retrying.")
+        return res

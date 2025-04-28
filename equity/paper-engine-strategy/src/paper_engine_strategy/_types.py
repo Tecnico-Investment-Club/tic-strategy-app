@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Tuple, Union
 
-Record = Tuple
+Record = Union[Tuple, List]
 File = List[Record]
 
 Key = Tuple

@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 
 import pandas as pd
-import pyarrow.parquet as pq
 
 from paper_engine_strategy._types import File
 
@@ -51,27 +50,27 @@ class LocalConnector(object):
 
         return file
 
-    def read_parquet(
-        self, file_name: str, unflatten: bool = False, transpose: bool = False
-    ) -> File:
-        """Returns all records from file in the source_model directory."""
-        source_file = self.set_source_file(f"{file_name}.parquet")
+    #def read_parquet(
+    #    self, file_name: str, unflatten: bool = False, transpose: bool = False
+    #) -> File:
+    #    """Returns all records from file in the source_model directory."""
+    #    source_file = self.set_source_file(f"{file_name}.parquet")
 
-        logger.debug("Unpacking file...")
-        table = pq.read_table(source_file)
-        logger.debug("Building dataframe...")
-        df: pd.DataFrame = table.to_pandas()
-        if transpose:
-            df = df.transpose()
-        if unflatten:
-            logger.debug("Unflattening...")
-            records = self.unflatten(df)
-        else:
-            records = df.to_records()
-        del df
-        logger.debug("Records generated.")
+    #    logger.debug("Unpacking file...")
+    #    table = pq.read_table(source_file)
+    #    logger.debug("Building dataframe...")
+    #    df: pd.DataFrame = table.to_pandas()
+    #    if transpose:
+    #        df = df.transpose()
+    #    if unflatten:
+    #        logger.debug("Unflattening...")
+    #        records = self.unflatten(df)
+    #    else:
+    #        records = df.to_records()
+    #    del df
+    #    logger.debug("Records generated.")
 
-        return records
+    #    return records
 
     @staticmethod
     def unflatten(df: pd.DataFrame) -> File:

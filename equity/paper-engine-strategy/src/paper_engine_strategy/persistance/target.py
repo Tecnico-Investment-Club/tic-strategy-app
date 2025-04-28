@@ -8,7 +8,7 @@ from psycopg2.extensions import connection as Connection, cursor as Cursor
 from psycopg2.extras import execute_values
 
 from paper_engine_strategy._encoders import cast_money
-from paper_engine_strategy._types import File, Keys
+from paper_engine_strategy._types import Keys
 
 logger = logging.getLogger(__name__)
 

@@ -64,6 +64,17 @@ class DistanceMethod(str, enum.Enum):
         else:
             raise ValueError("Invalid distance method")
 
+distance_method = {
+    'PEARSON': DistanceMethod.PEARSON,
+    'MANHATTAN': DistanceMethod.MANHATTAN,
+    'NORMALIZED_EUCLIDEAN': DistanceMethod.NORMALIZED_EUCLIDEAN,
+    'EUCLIDEAN': DistanceMethod.EUCLIDEAN,
+    'ONE_MINUS_CORRELATION': DistanceMethod.ONE_MINUS_CORRELATION,
+    'CANBERRA': DistanceMethod.CANBERRA,
+    'ONE_MINUS_COSINE': DistanceMethod.ONE_MINUS_COSINE,
+    'BRAY_CURTIS': DistanceMethod.BRAY_CURTIS,
+}
+
 
 def adjust_alpha(method, w_target, w_unbalanced, delta, verbose=False, tomas=False):
     """

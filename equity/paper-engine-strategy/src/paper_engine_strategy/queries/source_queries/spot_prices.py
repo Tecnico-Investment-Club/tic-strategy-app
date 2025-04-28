@@ -5,6 +5,10 @@ from paper_engine_strategy.queries.source_queries.base import BaseSourceQueries
 
 class Queries(BaseSourceQueries):
     """SOURCE Spot Klines queries."""
+    LOAD_LATEST = (
+        "SELECT MAX(open_time) "
+        "FROM {schema}.spot_{interval}; "
+    )
 
     LOAD_RECORDS = (
         "SELECT id, "

@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
 from paper_engine_strategy._types import Key, Keys, Message, Record
-from paper_engine_strategy.model.event_type import EventType
 
 
 class State(ABC):
@@ -46,45 +45,3 @@ class State(ABC):
     @abstractmethod
     def as_tuple(self) -> Tuple:
         """Returns object values as a tuple."""
-
-
-class EventLog(ABC):
-    """Base event log."""
-
-    event_type: EventType
-    curr: State
-    prev: Optional[State] = None
-
-    @property
-    @abstractmethod
-    def mask(self) -> str:
-        """Event log record change mask."""
-
-    def as_record(self) -> Tuple:
-        """Returns object values as target record."""
-        curr = self.curr.as_tuple()
-        prev = (None,) * len(curr) if self.prev is None else self.prev.as_tuple()
-
-        return (self.event_type.value,) + curr + prev + (self.mask,)
-
-    @classmethod
-    def from_states(
-        cls, event_type: EventType, curr: State, prev: Optional[State]
-    ) -> "EventLog":
-        """Creates an event log object instance."""
-        res = cls()
-        res.event_type = event_type
-        res.curr = curr
-        res.prev = prev
-
-        return res
-
-    @property
-    @abstractmethod
-    def topic(self) -> str:
-        """Returns object topic to publish."""
-
-    @property
-    @abstractmethod
-    def message(self) -> Message:
-        """Returns object message to publish."""

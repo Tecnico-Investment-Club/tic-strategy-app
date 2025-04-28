@@ -1,7 +1,7 @@
 CREATE TABLE strategy_control
 (
     strategy_id                             BIGINT,
-    last_decision_date                      TIMESTAMP,
+    last_decision_ts                        TIMESTAMP,
 
     hash                                    VARCHAR NOT NULL,
 

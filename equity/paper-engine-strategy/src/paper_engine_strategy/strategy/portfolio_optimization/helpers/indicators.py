@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from hurst import compute_Hc
 
-import paper_engine_strategy.portfolio_optimization.helpers.data_models as dm
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_models as dm
 
 """
 

@@ -3,8 +3,8 @@ from datetime import datetime as dt
 import numpy as np
 import pandas as pd
 
-import paper_engine_strategy.portfolio_optimization.helpers.data_models as dm
-import paper_engine_strategy.portfolio_optimization.helpers.indicators as indicator
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_models as dm
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.indicators as indicator
 
 
 def get_sigmoid_momentum_signals(
