@@ -3,7 +3,7 @@ import typing
 
 import pydantic
 
-import tc_optimization as tc
+import paper_engine_strategy.strategy.portfolio_optimization.helpers.tc_optimization as tc
 
 """
 

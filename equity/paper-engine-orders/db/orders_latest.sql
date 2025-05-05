@@ -7,7 +7,7 @@ CREATE TABLE orders_latest
     order_ts                                TIMESTAMP,
     target_wgt                              DECIMAL(10,4),
     real_wgt                                DECIMAL(10,4),
-    quantity                                DECIMAL(10,4),
+    quantity                                DECIMAL(24,4),
     notional                                DECIMAL(24,4),
 
     hash                                    VARCHAR NOT NULL,

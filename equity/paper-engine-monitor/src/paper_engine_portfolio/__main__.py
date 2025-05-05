@@ -227,11 +227,12 @@ class Loader:
         ts = datetime.utcnow()
         for asset_id, pos in positions.items():
             side = 1 if pos["side"] == "long" else -1
+            asset_id_type = "CRYPTO_TICKER" if asset_id[-3:] == "USD" else "STOCK_TICKER"
             res.append(
                 (
                     portfolio_id,
                     side,
-                    "TICKER",
+                    asset_id_type,
                     asset_id,
                     ts,
                     pos["notional"] / portfolio_value,
@@ -263,14 +264,16 @@ class Loader:
 
         prev_portfolio = self.get_prev_portfolio(portfolio_id)
         if not prev_portfolio:
+            cash = self._broker.get_cash_value()
             (
-                prev_portfolio_value,
+                prev_market_value,
                 prev_long_value,
                 prev_short_value,
             ) = self._source.fetch_one(
                 source_queries.OrdersQueries.LOAD_INITIAL_PORTFOLIO_VALUES,
                 {"portfolio_id": portfolio_id},
             )
+            prev_portfolio_value = prev_market_value + cash
             prev_cum_rtn = Decimal(0)
             prev_long_cum_rtn = Decimal(0)
             prev_short_cum_rtn = Decimal(0)

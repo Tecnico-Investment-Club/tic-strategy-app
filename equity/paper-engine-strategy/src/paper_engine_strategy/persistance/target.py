@@ -84,7 +84,7 @@ class Target(object):
     def get_strategy_id(self, strategy_hash: str) -> Optional[int]:
         """Get portfolio_optimization id related to provided params."""
         query = (
-            "SELECT strategy_id " "FROM strategy_config " "WHERE strategy_hash = %s;"
+            "SELECT strategy_id " "FROM paper_engine.strategy_config " "WHERE strategy_hash = %s;"
         )
         cursor = self.cursor
         cursor.execute(query=query, vars=(strategy_hash,))
@@ -100,7 +100,7 @@ class Target(object):
         """
         cursor = self.cursor
         # ALTER SEQUENCE delivery_id_strategy_seq RESTART;
-        cursor.execute("SELECT NEXTVAL('strategy_id_seq');")
+        cursor.execute("SELECT NEXTVAL('paper_engine.strategy_id_seq');")
         res = cursor.fetchone()
 
         return res[0]
@@ -113,7 +113,7 @@ class Target(object):
         """
         cursor = self.cursor
         # ALTER SEQUENCE delivery_id_strategy_seq RESTART;
-        cursor.execute("SELECT NEXTVAL('delivery_id_strategy_seq');")
+        cursor.execute("SELECT NEXTVAL('paper_engine.delivery_id_strategy_seq');")
         res = cursor.fetchone()
 
         return res[0]
@@ -130,7 +130,7 @@ class Target(object):
         cursor = self.cursor
         # ALTER SEQUENCE event_id_delivery_s3_seq RESTART;
         cursor.execute(
-            "SELECT NEXTVAL('event_id_strategy_seq') "
+            "SELECT NEXTVAL('paper_engine.event_id_strategy_seq') "
             "FROM GENERATE_SERIES(1, %(n_event_ids)s);",
             vars={"n_event_ids": n},
         )
@@ -168,7 +168,7 @@ class Target(object):
             args: Delivery metadata to persist.
         """
         query = (
-            "INSERT INTO loader_strategy ("
+            "INSERT INTO paper_engine.loader_strategy ("
             "delivery_id, "
             "delivery_ts, runtime"
             ") VALUES ("

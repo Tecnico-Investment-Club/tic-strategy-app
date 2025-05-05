@@ -6,7 +6,7 @@ CREATE TABLE position_latest
     asset_id                                VARCHAR(20),
     position_ts                             TIMESTAMP,
     wgt                                     DECIMAL(10,4),
-    quantity                                DECIMAL(10,4),
+    quantity                                DECIMAL(24,4),
     notional                                DECIMAL(24,4),
 
     hash                                    VARCHAR NOT NULL,

@@ -63,17 +63,17 @@ class Portfolio(State):
         res.delivery_id = None
         res.portfolio_id = record[0]  # entity key
         res.portfolio_ts = record[1]  # entity key
-        res.long_notional = record[2] if record[2] else None
-        res.short_notional = record[3] if record[3] else None
-        res.notional = record[4] if record[4] else None
-        res.long_wgt = record[5] if record[5] else None
-        res.short_wgt = record[6] if record[6] else None
-        res.long_rtn = record[7] if record[7] else None
-        res.long_cum_rtn = record[8] if record[8] else None
-        res.short_rtn = record[9] if record[9] else None
-        res.short_cum_rtn = record[10] if record[10] else None
-        res.rtn = record[11] if record[11] else None
-        res.cum_rtn = record[12] if record[12] else None
+        res.long_notional = record[2] if record[2] else 0
+        res.short_notional = record[3] if record[3] else 0
+        res.notional = record[4] if record[4] else 0
+        res.long_wgt = record[5] if record[5] else 0
+        res.short_wgt = record[6] if record[6] else 0
+        res.long_rtn = record[7] if record[7] else 0
+        res.long_cum_rtn = record[8] if record[8] else 0
+        res.short_rtn = record[9] if record[9] else 0
+        res.short_cum_rtn = record[10] if record[10] else 0
+        res.rtn = record[11] if record[11] else 0
+        res.cum_rtn = record[12] if record[12] else 0
 
         return res
 

@@ -5,7 +5,7 @@ CREATE TABLE strategy
     asset_id                                VARCHAR(20),
     datadate                                TIMESTAMP,
     decision_ts                             TIMESTAMP,
-    factor                                  DECIMAL(24,4),
+    weight                                  DECIMAL(24,4),
     decision                                INTEGER,
 
     hash                                    VARCHAR NOT NULL,

@@ -16,6 +16,9 @@ class StrategyConfig(State):
 
     strategy_id: int  # entity key
     strategy_type: Optional[str]
+    asset_type: Optional[str]
+    interval: Optional[str]
+    lookback: Optional[int]
     strategy_config: Optional[str]
     strategy_hash: Optional[str]
 
@@ -25,6 +28,9 @@ class StrategyConfig(State):
         res = (
             f"{self.strategy_id}, "
             f"{self.strategy_type}, "
+            f"{self.asset_type}, "
+            f"{self.interval}, "
+            f"{self.lookback}, "
             f"{self.strategy_config}, "
             f"{self.strategy_hash}"
         )
@@ -44,8 +50,11 @@ class StrategyConfig(State):
         res.delivery_id = None
         res.strategy_id = record[0]  # entity key
         res.strategy_type = record[1] if record[1] else None
-        res.strategy_config = json.dumps(record[2], sort_keys=True) if record[2] else None
-        res.strategy_hash = record[3] if record[3] else None
+        res.asset_type = record[2] if record[2] else None
+        res.interval = record[3] if record[3] else None
+        res.lookback = record[4] if record[4] else None
+        res.strategy_config = json.dumps(record[5], sort_keys=True) if record[5] else None
+        res.strategy_hash = record[6] if record[6] else None
 
         return res
 
@@ -55,11 +64,14 @@ class StrategyConfig(State):
         res = cls()
         res.strategy_id = record[0]
         res.strategy_type = record[1]
-        res.strategy_config = record[2]
-        res.strategy_hash = record[3]
-        _ = record[4]  # hash
-        res.event_id = record[5]
-        res.delivery_id = record[6]
+        res.asset_type = record[2]
+        res.interval = record[3]
+        res.lookback = record[4]
+        res.strategy_config = record[5]
+        res.strategy_hash = record[6]
+        _ = record[7]  # hash
+        res.event_id = record[8]
+        res.delivery_id = record[9]
 
         return res
 
@@ -85,6 +97,9 @@ class StrategyConfig(State):
         return (
             self.strategy_id,
             self.strategy_type,
+            self.asset_type,
+            self.interval,
+            self.lookback,
             self.strategy_config,
             self.strategy_hash,
             self.hash,

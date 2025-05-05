@@ -3,6 +3,9 @@
 from datetime import datetime, timedelta
 from typing import List
 
+def go_days_back(d: datetime, n: int) -> datetime:
+    """Get the day n days ago."""
+    return d - timedelta(days=n)
 
 def go_business_days_back(d: datetime, n: int) -> datetime:
     """Get the business day n business days ago."""

@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_analysis as analysis
@@ -5,6 +7,8 @@ import paper_engine_strategy.strategy.portfolio_optimization.helpers.signalling 
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_models as dm
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.portfolio_weights as pw
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.tc_optimization as tc
+
+logger = logging.getLogger(__name__)
 
 
 class PortfolioOptimization:
@@ -43,7 +47,7 @@ class PortfolioOptimization:
                 mean_rev_type=self.mean_rev_type,
                 momentum_type=self.momentum_type,
                 functional_constraints=self.functional_constraints,
-                momentus_days_period=self.momentum_days,
+                momentum_days_period=self.momentum_days,
                 live_analysis=True,
             ),
             hurst_thresholds=self.functional_constraints.hurst_filter,
@@ -62,19 +66,19 @@ class PortfolioOptimization:
         assets_to_buy, _ = analysis.extract_assets(
             buy_and_sells, self.functional_constraints.hurst_exponents_period
         )
-        print("Assets to buy:", assets_to_buy)
+        logger.info(f"Assets to buy: {assets_to_buy}")
 
         if len(assets_to_buy) > 0:
             buy_array, _, _, _ = pw.calculate_uniform_weights(
                 assets_to_buy, [], shorting_value=0
             )
-            print("Buy array:", buy_array)
+            logger.info(f"Buy array: {buy_array}")
 
             target_weights = [
                 [ticker, self.last_date, weight]
                 for ticker, weight in zip(assets_to_buy, buy_array)
             ]
-            print("Target weights:", target_weights)
+            logger.info(f"Target weights: {target_weights}")
 
             if self.previous_weights is not None:
 
@@ -93,23 +97,23 @@ class PortfolioOptimization:
                     weight = alpha * prev[2] + (1 - alpha) * target[2]
                     rebalanced_weights.append([ticker, date, weight])
 
-                print("Rebalanced weights:", rebalanced_weights)
+                logger.info(f"Rebalanced weights: {rebalanced_weights}")
                 return rebalanced_weights
 
             else:
-                print("No previous weights, using target weights")
+                logger.info("No previous weights, using target weights")
                 return target_weights
 
         else:
-            print("No assets to buy")
-            if self.previous_weights is not None:
-                print("Using previous weights")
+            logger.info("No assets to buy")
+            if self.previous_weights:
+                logger.info("Using previous weights")
                 return [
                     [ticker, self.last_date, weight]
                     for ticker, _, weight in self.previous_weights
                 ]
             else:
-                print("No previous weights, returning equal weights")
+                logger.info("No previous weights, returning equal weights")
                 equal_weights = [
                     [ticker, self.last_date, 1 / len(self.closes.columns)]
                     for ticker in self.closes.columns

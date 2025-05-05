@@ -4,6 +4,7 @@ import pandas as pd
 
 from paper_engine_strategy._types import File
 from paper_engine_strategy.model.source_model.spot_prices import SpotPrices
+from paper_engine_strategy.model.strategy_latest import StrategyLatest
 from paper_engine_strategy.strategy.base import BaseStrategy
 from paper_engine_strategy.strategy.portfolio_optimization.po import PortfolioOptimization
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_models as dm
@@ -50,16 +51,16 @@ class POHurstExpStrategy(BaseStrategy):
         res.params = params
         return res
 
-    def get_weights(self, records: List[SpotPrices], prev_weights: List) -> File:
+    def get_weights(self, records: List[SpotPrices], prev_weights: List[StrategyLatest]) -> File:
         """Pick portfolio according to thresholds."""
-        # TODO TREAT PREV WGTS
         closes = self.records_2_df(records)
+        prev_wgts = [[p.asset_id, p.datadate, p.weight] for p in prev_weights]
 
         params = self.params
         p = PortfolioOptimization(
             **params,
             closes=closes,
-            previous_weights=prev_weights
+            previous_weights=prev_wgts
         )
         strategy_records = p.get_weights()
 
@@ -70,9 +71,10 @@ class POHurstExpStrategy(BaseStrategy):
         short_records = [{
             "date": r.open_time,
             "symbol": r.symbol,
-            "close": r.close_price,
+            "close": float(r.close_price),
         } for r in records]
         df = pd.DataFrame(short_records)
         pivoted = df.pivot(index='date', columns='symbol', values='close')
+        pivoted = pivoted.dropna(axis=1, how="any")
         return pivoted
 

@@ -50,13 +50,11 @@ class Weighting(BaseWeight):
 
     def get_target_weights(self) -> None:
         """Get weighting method target weights."""
-        self.target_weights = {s.asset_id: s.target_wgt for s in self.strategy_records}
+        self.target_weights = {s.asset_id: s.weight for s in self.strategy_records}
 
     def get_weights(self) -> None:
         """Get portfolio weights."""
-        strat_tickers = [
-            s.asset_id for s in self.strategy_records if s.asset_id_type == "TICKER"
-        ]
+        strat_tickers = [s.asset_id for s in self.strategy_records]
         latest_asks, latest_bids = self.broker.get_latest_book(strat_tickers)
 
         prices: Dict = {}
@@ -82,8 +80,13 @@ class Weighting(BaseWeight):
             target_notional = self.capital * self.target_weights[s.asset_id]
 
             price = prices[s.asset_id]
-            quantity = Decimal(target_notional // price)
-            # TODO: ALWAYS BUYING/SELLING 1 (?)
+            if s.asset_id_type == "STOCK_TICKER":
+                quantity = Decimal(target_notional // price)
+            else:
+                # CRYPTO_TICKER
+                quantity = Decimal(target_notional / price)
+
+            # TODO: ALWAYS BUY/SELL 1 (?)
             if quantity == Decimal(0):
                 quantity = Decimal(1)
             quantities[s.asset_id] = quantity

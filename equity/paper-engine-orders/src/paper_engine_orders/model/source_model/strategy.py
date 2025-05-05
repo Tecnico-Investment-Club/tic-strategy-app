@@ -22,7 +22,7 @@ class Strategy(SourceState):
     asset_id: str
     datadate: datetime
     decision_ts: Optional[datetime] = None
-    target_wgt: Optional[Decimal] = None
+    weight: Optional[Decimal] = None
     decision: Optional[int] = None
 
     @classmethod
@@ -37,7 +37,7 @@ class Strategy(SourceState):
             res.asset_id = record[2] if record[2] else None
         res.datadate = record[3] if record[3] else None
         res.decision_ts = record[4] if record[4] else None
-        res.target_wgt = record[5] if record[5] else None
+        res.weight = record[5] if record[5] else None
         res.decision = record[6] if record[6] else None
 
         return res
@@ -55,6 +55,6 @@ class Strategy(SourceState):
             f"{self.asset_id}, "
             f"{self.datadate}, "
             f"{self.decision_ts}, "
-            f"{self.target_wgt}, "
+            f"{self.weight}, "
             f"{self.decision})"
         )

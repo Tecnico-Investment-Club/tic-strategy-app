@@ -16,7 +16,7 @@ exponent, momentum etc..
 
 def get_data_analysis(
     close_df,
-    rebalancing_period: int,
+    rebalancing_period: dm.Rebalancing_Period,
     hurst_exponents_period: int,
     mean_rev_type: dm.Mean_Rev_Type,
     momentum_type: dm.Momentum_Type,

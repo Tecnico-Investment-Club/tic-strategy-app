@@ -2,6 +2,7 @@
 
 import argparse
 import ast
+import json
 from datetime import datetime
 import hashlib
 import logging
@@ -9,12 +10,12 @@ import os
 import secrets
 from sys import stdout
 import time
-from typing import Any, Dict, List, Set, Tuple, Type
+from typing import Any, Dict, List, Set, Tuple, Type, Optional
 
-from paper_engine_strategy import __version__
 import paper_engine_strategy._filters as filters
 from paper_engine_strategy._types import File, Key, Keys
-import paper_engine_strategy.date_helpers as date_helpers
+import paper_engine_strategy._date_helpers as date_helpers
+import paper_engine_strategy._helpers as helpers
 import paper_engine_strategy.model as model
 from paper_engine_strategy.model.base import State
 from paper_engine_strategy.model.source_model.spot_prices import SpotPrices
@@ -39,9 +40,14 @@ logger = logging.getLogger(__name__)
 class Loader:
     """Loader main class."""
 
+    _strategy_type: str
+    _asset_type: str
+    _interval: str
     _lookback: int
     _strategy_config: Dict[str, Any]
-    _strategy_type: str
+
+    # ---
+    _strategy_id: Optional[int]
     _strategy: BaseStrategy
 
     _source: source.Source
@@ -73,6 +79,10 @@ class Loader:
     _strategies: Dict[str, BaseStrategy] = {
         "PO_HURST_EXPONENT": strat.POHurstExpStrategy,
     }
+    _schemas: Dict[str, str] = {
+        "STOCK": "alpaca",
+        "CRYPTO": "binance"
+    }
 
     def setup(self, args: argparse.Namespace) -> None:
         """Prepares loader components.
@@ -85,7 +95,6 @@ class Loader:
         self._dry_run = args.dry_run
         self._min_sleep = args.min_sleep
         self._max_sleep = args.max_sleep
-        self._lookback = args.lookback
 
         # prepare persistence FROM
         self._source = source.Source(args.source)
@@ -94,8 +103,12 @@ class Loader:
         self._target = target.Target(args.target)
 
         self._strategy_type = args.strategy_type
-        self._strategy_config = args.strategy_config
+        self._strategy_config = json.loads(args.strategy_config)
         self._strategy = self._strategies[self._strategy_type]
+
+        self._asset_type = args.asset_type
+        self._interval = args.interval
+        self._lookback = args.lookback
 
     def tear_down(self) -> None:
         """Cleans loader settings.
@@ -114,7 +127,7 @@ class Loader:
         Args:
             args: Variables given by user when starting loader process.
         """
-        logger.info(f"paper-engine-portfolio_optimization v{__version__}")
+        logger.info(f"paper-engine-strategy")
 
         self.setup(args=args)
 
@@ -160,36 +173,30 @@ class Loader:
         start_time: datetime = datetime.utcnow()
         end_time: datetime
 
-        logger.debug("Resolving portfolio_optimization ID...")
+        logger.debug("Resolving Strategy ID...")
         self._new_strategy = False
         strategy_hash = self.get_strat_hash()
-        strategy_id = self._target.get_strategy_id(strategy_hash)
+        self._strategy_id = self._target.get_strategy_id(strategy_hash)
         config_records: File = []
-        if not strategy_id:
+        if not self._strategy_id:
             self._new_strategy = True
-            strategy_id = self._target.get_next_strategy_id()
-            config_records = self.get_config_records(strategy_id, strategy_hash)
-        self._strategy_config["strategy_id"] = strategy_id
+            self._strategy_id = self._target.get_next_strategy_id()
+            config_records = self.get_config_records(strategy_hash)
 
         logger.debug("Fetching latest data...")
-        latest_datadate = self.check_new_data(strategy_id)
+        latest_datadate = self.check_new_data()
         if not self._new_strategy and not latest_datadate:
-            logger.debug("No new data to make decisions.")
+            logger.info("No new data to make decisions.")
             return
 
         strategy_data = self.get_strategy_data(latest_datadate)
         strategy_data = self.filter_data(strategy_data)
-        prev_wgts = self.get_prev_wgts(strategy_id)
+        prev_wgts = self.get_prev_wgts()
 
-        logger.debug("Running portfolio_optimization...")
+        logger.debug("Running Strategy...")
         strategy_records = self.run_strategy(strategy_data, prev_wgts)
 
-        control_records: File = [
-            (
-                strategy_id,
-                datetime.utcnow(),
-            )
-        ]
+        control_records: File = [(self._strategy_id, datetime.utcnow())]
 
         delivery_id: int = self._target.get_next_delivery_id()
         delivery: Dict = {
@@ -230,17 +237,17 @@ class Loader:
             f"Delivery {delivery_id}: processed ({end_time - start_time} seconds)."
         )
 
-    def check_new_data(self, strategy_id: int):
-        # TODO: ADAPT TO HANDLE EQUITY+CRYPTO
-        query = SpotPricesQueries.LOAD_LATEST.format(schema='alpaca', interval='1d')
+    def check_new_data(self):
+        schema = self._schemas[self._asset_type]
+        query = SpotPricesQueries.LOAD_LATEST.format(schema=schema, interval=self._interval)
         latest_datadate = self._source.get_file(query)
         if not latest_datadate:
             return None
-        latest_datadate = latest_datadate[0]
+        latest_datadate = latest_datadate[0][0]
 
         latest_control = self._target.get_current_state(
                 query=queries.StrategyControlQueries.LOAD_STATE,
-                args=[(strategy_id,)],
+                args=[(self._strategy_id,)],
             )
         if not latest_control:
             return latest_datadate
@@ -252,56 +259,79 @@ class Loader:
             return None
 
     def get_strategy_data(self, latest_date) -> List[SpotPrices]:
-        start_date = date_helpers.go_business_days_back(latest_date, n=self._lookback)
-        # TODO: ADAPT TO HANDLE EQUITY+CRYPTO
-        query = SpotPricesQueries.LOAD_RECORDS.format(schema='alpaca', interval='1d')
+        if self._asset_type == "CRYPTO":
+            start_date = date_helpers.go_days_back(latest_date, n=self._lookback)
+        else:
+            start_date = date_helpers.go_business_days_back(latest_date, n=self._lookback)
+        schema = self._schemas[self._asset_type]
+        query = SpotPricesQueries.LOAD_RECORDS.format(schema=schema, interval=self._interval)
 
         raw_records = self._source.get_file(query, variable=(start_date,))
         records = [SpotPrices.from_source(r) for r in raw_records]
         return records
 
-    def get_prev_wgts(self, strategy_id):
-        query: BaseQueries = self._queries[Entity.STRATEGY_LATEST]
+    def get_prev_wgts(self):
+        e = Entity.STRATEGY_LATEST
+        query: BaseQueries = self._queries[e]
         all_prev_wgts: List[Tuple] = self._target.get_current_state(
             query=query.LOAD_FULL_STATE,
         )
-        prev_wgts = [r for r in all_prev_wgts if r[0] == strategy_id]
+        prev_wgts = [self._state[e].from_target(r) for r in all_prev_wgts if r[0] == self._strategy_id]
         return prev_wgts
 
-    def filter_data(self, strategy_data):
-        asset_type = self._strategy_config.get("asset_type", "equity")
-        # ASSUMING S[1] IS ALWAYS SYMBOL
-        if asset_type == "equity":
-            res = [s for s in strategy_data if s[1] in filters.EQUITY]
-        elif asset_type == "crypto":
-            res = [s for s in strategy_data if s[1] in filters.CRYPTO]
+    def filter_data(self, strategy_data: List[SpotPrices]):
+        if self._asset_type == "STOCK":
+            res = [s for s in strategy_data if s.symbol in filters.STOCK]
+        elif self._asset_type == "CRYPTO":
+            res = [s for s in strategy_data if s.symbol[-4:] == 'USDT']
+            for s in res:
+                s.symbol = helpers.binance_2_alpaca_symbol(s.symbol)
+            res = [s for s in strategy_data if s.symbol in filters.CRYPTO]
         else:
-            universe = filters.EQUITY + filters.CRYPTO
-            res = [s for s in strategy_data if s[1] in universe]
+            return None
         return res
 
     def run_strategy(self, data, prev_wgts=None) -> File:
         strategy = self._strategy.setup(self._strategy_config)
-        strategy_records = strategy.get_weights(data, prev_wgts)
-
+        raw_strategy_records = strategy.get_weights(data, prev_wgts)
+        strategy_records = [
+            [
+                self._strategy_id,
+                f'{self._asset_type}_TICKER',  # TICKER HARDCODED HERE
+                s[0],  # asset_id
+                s[1],  # datadate
+                datetime.utcnow(),
+                s[2],  # weight
+                1,     # decision -> LONG ONLY HARDCODED HERE
+            ]
+            for s in raw_strategy_records
+        ]
         return strategy_records
 
     def get_strat_hash(self) -> str:
         """Get portfolio_optimization hash from portfolio_optimization params."""
         ordered_keys = sorted(self._strategy_config.keys())
-        strat_string = f"{self._strategy_type}"
+        strat_string = (
+            f"{self._strategy_type}"
+            f"{self._asset_type}"
+            f"{self._interval}"
+            f"{self._lookback}"
+        )
         for k in ordered_keys:
             strat_string += f"{self._strategy_config[k]}"
-        strategy_hash = hashlib.sha256(strat_string).hexdigest()
+        strategy_hash = hashlib.sha256(strat_string.encode("utf-8")).hexdigest()
 
         return strategy_hash
 
-    def get_config_records(self, strategy_id: int, strategy_hash: str) -> File:
+    def get_config_records(self, strategy_hash: str) -> File:
         """Get portfolio_optimization configuration records."""
         config_records: File = [
             (
-                strategy_id,
+                self._strategy_id,
                 self._strategy_type,
+                self._asset_type,
+                self._interval,
+                self._lookback,
                 self._strategy_config,
                 strategy_hash,
             )
@@ -521,13 +551,31 @@ def parse_args() -> argparse.Namespace:
         default=os.getenv("STRATEGY_TYPE"),
         type=str,
         required=False,
-        help="Type of portfolio_optimization.",
+        help="Type of Strategy.",
+    )
+
+    parser.add_argument(
+        "--asset_type",
+        dest="asset_type",
+        default=os.getenv("ASSET_TYPE", "CRYPTO"),
+        type=str,
+        required=False,
+        help="Strategy asset type.",
+    )
+
+    parser.add_argument(
+        "--interval",
+        dest="interval",
+        default=os.getenv("INTERVAL", "1d"),
+        type=str,
+        required=False,
+        help="Data interval.",
     )
 
     parser.add_argument(
         "--strategy_config",
         dest="strategy_config",
-        default=os.getenv("STRATEGY_CONFIG"),
+        default=os.getenv("STRATEGY_CONFIG", '{}'),
         type=str,
         required=False,
         help="Strategy configuration JSON.",

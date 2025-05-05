@@ -63,6 +63,7 @@ class Loader:
     _min_sleep: int
     _max_sleep: int
     _portfolio_name: str
+    _cash_allocation: Decimal
 
     _entities: Set[Entity] = {
         Entity.ORDERS,
@@ -109,6 +110,7 @@ class Loader:
         ).hexdigest()
 
         self._portfolio_name = args.portfolio_name
+        self._cash_allocation = Decimal(args.cash_allocation)
 
     def tear_down(self) -> None:
         """Cleans loader settings.
@@ -171,13 +173,6 @@ class Loader:
         start_time: datetime = datetime.utcnow()
         end_time: datetime
 
-        # CHECK IF MARKET IS OPEN
-        curr_time = datetime.utcnow().time().replace(tzinfo=pytz.utc)
-        market_open = self.check_market_open(US_MARKET_OPEN, US_MARKET_CLOSE, curr_time)
-        if not market_open:
-            logger.info("Market is not open.")
-            # return
-
         new_decisions_metadata = self.check_new_decisions()
         if not new_decisions_metadata:
             logger.info("No new decision for the strategy.")
@@ -193,6 +188,13 @@ class Loader:
             latest_decision_datadate = decision_metadata[3]
 
             strategy_records = self.get_latest_decision(strategy_id)
+            if strategy_records[0].asset_id_type[:5] == "STOCK":
+                # CHECK IF MARKET IS OPEN
+                curr_time = datetime.now(us_market_tz).time()
+                market_open = self.check_market_open(US_MARKET_OPEN, US_MARKET_CLOSE, curr_time)
+                if not market_open:
+                    logger.info("Market is not open.")
+                    continue
 
             asset_ids = [s.asset_id for s in strategy_records]
             tradable_asset_ids = self._broker.check_tradable(asset_ids)
@@ -241,6 +243,9 @@ class Loader:
             ### FOR NOW LONG ONLY IS HARD CODED HERE ###
             ############################################
             long_capital = account_capital
+            if strategy_records[0].asset_id_type[:6] == "CRYPTO":
+                # CASH CUSHION FOR CRYPTO SLIPPAGE
+                long_capital = (1 - self._cash_allocation) * long_capital
             short_capital = Decimal("0")
             ############################################
 
@@ -276,6 +281,11 @@ class Loader:
             config_records.append(
                 self.get_config_record(portfolio_id, strategy_id)
             )
+
+        if not orders_records:
+            # when only stock strategies are deployed
+            # and process runs outside market hours
+            return
 
         delivery_id: int = self._target.get_next_delivery_id()
         delivery: Dict = {
@@ -609,6 +619,15 @@ def parse_args() -> argparse.Namespace:
         type=str,
         required=False,
         help="Type of portfolio (dollar neutral, etc.).",
+    )
+
+    parser.add_argument(
+        "--cash_allocation",
+        dest="cash_allocation",
+        default=os.getenv("CASH_ALLOCATION"),
+        type=str,
+        required=False,
+        help="Percentage of cash allocation.",
     )
 
     parser.add_argument(

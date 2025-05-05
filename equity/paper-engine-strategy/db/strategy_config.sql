@@ -2,6 +2,9 @@ CREATE TABLE strategy_config
 (
     strategy_id                             BIGINT,
     strategy_type                           VARCHAR,
+    asset_type                              VARCHAR,
+    interval                                VARCHAR,
+    lookback                                INTEGER,
     strategy_config                         JSONB,
     strategy_hash                           VARCHAR,
 

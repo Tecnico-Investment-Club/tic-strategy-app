@@ -20,7 +20,7 @@ class Strategy(State):
     asset_id: str
     datadate: datetime
     decision_ts: Optional[datetime] = None
-    factor: Optional[Decimal] = None
+    weight: Optional[Decimal] = None
     decision: Optional[int] = None
 
     @property
@@ -32,7 +32,7 @@ class Strategy(State):
             f"{self.asset_id}, "
             f"{self.datadate}, "
             f"{self.decision_ts}, "
-            f"{self.factor}, "
+            f"{self.weight}, "
             f"{self.decision}"
         )
 
@@ -59,7 +59,7 @@ class Strategy(State):
         res.asset_id = record[2]
         res.datadate = record[3]
         res.decision_ts = record[4] if record[4] else None
-        res.factor = record[5] if record[5] else None
+        res.weight = record[5] if record[5] else None
         res.decision = record[6] if record[6] else None
 
         return res
@@ -73,7 +73,7 @@ class Strategy(State):
         res.asset_id = record[2]
         res.datadate = record[3]
         res.decision_ts = record[4]
-        res.factor = record[5]
+        res.weight = record[5]
         res.decision = record[6]
         _ = record[7]  # hash
         res.event_id = record[8]
@@ -104,7 +104,7 @@ class Strategy(State):
             self.asset_id,
             self.datadate,
             self.decision_ts,
-            self.factor,
+            self.weight,
             self.decision,
             self.hash,
             self.event_id,

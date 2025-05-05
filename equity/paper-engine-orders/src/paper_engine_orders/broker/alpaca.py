@@ -5,8 +5,8 @@ from decimal import Decimal
 import logging
 from typing import Dict, List, Tuple
 
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockLatestQuoteRequest
+from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
+from alpaca.data.requests import StockLatestQuoteRequest, CryptoLatestQuoteRequest
 from alpaca.trading.client import Order, Position, TradingClient
 from alpaca.trading.enums import AssetClass, OrderSide, TimeInForce
 from alpaca.trading.models import Asset
@@ -32,7 +32,8 @@ class Alpaca(Broker):
         self.trading_client = TradingClient(api_key, secret_key, paper=True)
         self.trading_stream = TradingStream(api_key, secret_key, paper=True)
 
-        self.data_client = StockHistoricalDataClient(api_key, secret_key)
+        self.stock_data_client = StockHistoricalDataClient(api_key, secret_key)
+        self.crypto_data_client = CryptoHistoricalDataClient(api_key, secret_key)
 
     def get_account_capital(self) -> Decimal:
         """Get account capital (equity + cash)."""
@@ -41,8 +42,13 @@ class Alpaca(Broker):
 
     def get_all_assets(self) -> List[Asset]:
         """Get all assets from the broker."""
-        search_params = GetAssetsRequest(asset_class=AssetClass.US_EQUITY)
-        assets = self.trading_client.get_all_assets(search_params)
+        us_stocks_params = GetAssetsRequest(asset_class=AssetClass.US_EQUITY)
+        crypto_params = GetAssetsRequest(asset_class=AssetClass.CRYPTO)
+
+        us_stocks = self.trading_client.get_all_assets(us_stocks_params)
+        crypto = self.trading_client.get_all_assets(crypto_params)
+
+        assets = us_stocks + crypto
 
         return assets
 
@@ -66,8 +72,16 @@ class Alpaca(Broker):
 
     def get_latest_book(self, symbols: List[str]) -> Tuple[Dict, Dict]:
         """Get latest bids and asks for the provided tickers."""
-        request_params = StockLatestQuoteRequest(symbol_or_symbols=symbols)
-        latest_quotes = self.data_client.get_stock_latest_quote(request_params)
+        crypto = False
+        for symbol in symbols:
+            if '/' in symbol:
+                crypto = True
+        if crypto:
+            request_params = CryptoLatestQuoteRequest(symbol_or_symbols=symbols)
+            latest_quotes = self.crypto_data_client.get_crypto_latest_quote(request_params)
+        else:
+            request_params = StockLatestQuoteRequest(symbol_or_symbols=symbols)
+            latest_quotes = self.stock_data_client.get_stock_latest_quote(request_params)
         latest_asks = {k: Decimal(v.ask_price) for k, v in latest_quotes.items()}
         latest_bids = {k: Decimal(v.bid_price) for k, v in latest_quotes.items()}
 
@@ -81,7 +95,7 @@ class Alpaca(Broker):
                 symbol=config["symbol"],
                 qty=config["quantity"],
                 side=OrderSide(config["side"]),
-                time_in_force=TimeInForce.DAY,
+                time_in_force=TimeInForce.GTC,
             )
         elif order_type == "LIMIT":
             order_data = LimitOrderRequest(
@@ -89,7 +103,7 @@ class Alpaca(Broker):
                 qty=config["quantity"],
                 limit_price=config["limit_price"],
                 side=OrderSide(config["side"]),
-                time_in_force=TimeInForce.DAY,
+                time_in_force=TimeInForce.GTC,
             )
         else:
             logger.info("No valid order type was provided.")
