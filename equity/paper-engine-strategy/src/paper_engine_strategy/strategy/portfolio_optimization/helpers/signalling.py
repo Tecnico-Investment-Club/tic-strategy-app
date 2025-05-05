@@ -123,20 +123,17 @@ def buy_and_sell_signalling(
                     (tuple[1] for tuple in data["close_price"] if tuple[0] == asset),
                     None,
                 )
-                # if macd_values[3] > 0 and macd_values[4] > functional_constraints.get_momentum_threshold():
+                macd = macd_values[1]
+                histogram = macd_values[3]
+                lower_threshold = macd_values[5]
+                upper_threshold = macd_values[6]
+                hist_trend = macd_values[7]
+                
                 if (
-                    0 < macd_values[1]
-                    and macd_values[3] > macd_values[5]
-                    and macd_values[6] > 0
-                ):  # and 0 < macd_values[4]:
-                    print(
-                        "close_price:",
-                        close_price,
-                        "macd_values[3]==histogram:",
-                        macd_values[3],
-                        "macd_values[5]==threshold:",
-                        macd_values[5],
-                    )
+                    macd > 0
+                    and lower_threshold < histogram < upper_threshold
+                    and hist_trend > 0
+                ):  
                     buy_and_sell_signals.setdefault(i, {}).setdefault("buy", []).append(
                         asset
                     )

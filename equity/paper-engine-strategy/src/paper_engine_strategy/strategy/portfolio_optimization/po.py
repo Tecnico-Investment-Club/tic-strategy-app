@@ -15,7 +15,6 @@ class PortfolioOptimization:
 
     def __init__(
         self,
-        closes: pd.DataFrame,
         best_delta: float,
         mom_type: dm.Momentum_Type,
         mean_rev_type: dm.Mean_Rev_Type,
@@ -23,6 +22,7 @@ class PortfolioOptimization:
         functional_constraints: dm.Functional_Constraints,
         rebalance_constraints: dm.Rebalance_Constraints,
         mom_days: int = 30,
+        closes: pd.DataFrame = None,
         previous_weights=None,
     ):
         self.closes = closes
@@ -38,16 +38,29 @@ class PortfolioOptimization:
 
     def get_weights(self):
 
+        """
+        Black-Box function to get the weights of the portfolio.
+        It uses the Hurst exponent to filter the assets and then uses the momentum and mean reversion strategies to generate buy signals.
+        It then calculates the target weights based on the buy signals and the previous weights.
+        It uses the distance method to calculate the rebalanced weights based on the previous weights and the target weights.
+        It returns the rebalanced weights.
+        Parameters:
+            closes (pd.DataFrame): DataFrame with datetime index and adjusted close prices for different assets
+            previous_weights: Previous weights of the portfolio before rebalancing (if any)
+
+        Returns:
+            list: A list of lists containing the ticker, date and weight of each asset in the portfolio.
+        """
         # Gerar sinais
         filtered_data, trendy_assets, mean_reverting_assets = analysis.filter_data(
             analysis.get_data_analysis(
                 self.closes,
-                rebalancing_period=self.rebalancing_period,
-                hurst_exponents_period=self.functional_constraints.hurst_exponents_period,
-                mean_rev_type=self.mean_rev_type,
-                momentum_type=self.momentum_type,
-                functional_constraints=self.functional_constraints,
-                momentum_days_period=self.momentum_days,
+                self.rebalancing_period,
+                self.functional_constraints.hurst_exponents_period,
+                self.mean_rev_type,
+                self.momentum_type,
+                self.functional_constraints,
+                self.momentum_days,
                 live_analysis=True,
             ),
             hurst_thresholds=self.functional_constraints.hurst_filter,

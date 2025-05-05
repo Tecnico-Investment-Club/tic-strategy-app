@@ -31,11 +31,14 @@ def get_data_analysis(
         close_df (pd.DataFrame): DataFrame with adjusted close prices for different assets.
         rebalancing_period (dm.Rebalancing_Period): Rebalancing period for the analysis.
         hurst_exponents_period (int): Period for Hurst exponent calculations (in days).
+        mean_rev_type (dm.Mean_Rev_Type): Type of mean reversion indicator to use.
+        momentum_type (dm.Momentum_Type): Type of momentum indicator to use.
+        functional_constraints (dm.Functional_Constraints): Functional constraints (see data_models.py).
         momentum_days_period (int): Period for momentum calculations (in days).
         live_analysis (bool): Flag to indicate if the analysis is for live trading.
 
     Returns:
-        dict: Dictionary containing analysis results for each rebalance period.
+        dict: Dictionary containing the Rebalancing Dates, Hurst exponents, Bollinger Bands, RSI, Cumulative Returns, MACD values, and close prices.
     """
     if live_analysis:
         H = [
@@ -63,7 +66,6 @@ def get_data_analysis(
                 functional_constraints.get_macd_long_window(),
                 signal_window=9,
             )
-            print(macd_df)
 
         return {
             "hurst_exponents": list(zip(close_df.columns, H)),
@@ -73,7 +75,7 @@ def get_data_analysis(
                 else None
             ),
             "RSI": (
-                list(zip(close_df.columns, RSI))
+                list(zip(close_df.columns, RSI.iloc[-1]))
                 if mean_rev_type == dm.Mean_Rev_Type.RSI
                 else None
             ),
@@ -90,7 +92,8 @@ def get_data_analysis(
                         macd_df.loc["signal_line", key],
                         macd_df.loc["histogram", key],
                         macd_df.loc["hist_diff", key],
-                        macd_df.loc["threshold", key],
+                        macd_df.loc["lower_threshold", key],
+                        macd_df.loc["upper_threshold", key],
                         macd_df.loc["trend", key],
                     )
                     for key in macd_df.columns
@@ -184,7 +187,8 @@ def get_data_analysis(
                         macd_df.loc["signal_line", key],
                         macd_df.loc["histogram", key],
                         macd_df.loc["hist_diff", key],
-                        macd_df.loc["threshold", key],
+                        macd_df.loc["lower_threshold", key],
+                        macd_df.loc["upper_threshold", key],
                         macd_df.loc["trend", key],
                     )
                     for key in macd_df.columns
@@ -220,16 +224,6 @@ def get_rebalancing_period_days(rebalancing_period: dm.Rebalancing_Period) -> in
     else:
         raise ValueError(f"Unknown rebalancing period unit: {unit}")
 
-
-"""
-
-Here for example there's lots of things to change
-In line 75 0.45 < h < 0.55 this values should be passed as arguments so that the
-user can decide which Hurst value they want to use
-
-"""
-
-
 def filter_data(
     dict_to_filter,
     hurst_thresholds=dm.HurstFilter.STANDARD,
@@ -241,11 +235,13 @@ def filter_data(
     Filters and organizes data based on Hurst exponent values.
 
     Parameters:
-        dict_to_filter (dict): The input dictionary containing data to filter.
+        dict_to_filter (dict): The input dictionary containing data to filter. (which is the output of get_data_analysis)
                                Expected keys in each item: 'rebalance-dates', 'hurst_exponents', 'bollinger_bands',
-                               'RSI', 'momentum_cumrets', 'macd_histogram', 'close_price'.
+                               'RSI', 'momentum_cumrets', 'macd_values', 'close_price'.
         hurst_thresholds (tuple): A tuple containing the lower and upper thresholds for the Hurst exponent.
                                   Default is (0.45, 0.55).
+        mean_rev_type (dm.Mean_Rev_Type): The type of mean reversion indicator to use.
+        momentum_type (dm.Momentum_Type): The type of momentum indicator to use.
         live_analysis (bool): Flag to indicate if the analysis is for live trading.
 
     Returns:
@@ -386,10 +382,11 @@ def filter_data(
                             signal_line,
                             histogram,
                             hist_diff,
-                            threseshold,
+                            lower_threshold,
+                            upper_threshold,
                             trend,
                         )
-                        for key, macd, signal_line, histogram, hist_diff, threseshold, trend in data[
+                        for key, macd, signal_line, histogram, hist_diff, lower_threshold, upper_threshold, trend in data[
                             "macd_values"
                         ]
                         if key in filtered_keys
@@ -490,26 +487,27 @@ def filter_assets_data(
     all_assets,
     first_returns=False,
 ):
-    """Filter the assets data for a given date.
+    """Filter the close prices data for the selected assets in the given range.
 
     Parameters:
     close_df (pd.DataFrame): The close prices of the assets
     date (int): The date to filter the assets data
     rebalancing_periods (dm.Rebalancing_Period): The rebalancing periods.
-    assets_selected (list): The assets selected
+    assets_selected (list): The assets selected (e.g. assets to buy)
     all_assets (list): All the assets available
     first_returns (bool): Flag to return the first returns
 
     Returns:
-    pd.DataFrame: The filtered DataFrame
-    pd.DataFrame: The filtered assets DataFrame
+    pd.DataFrame: The close prices for all assets in the given period
+    pd.DataFrame: The returns for all assets in the given period
+    pd.DataFrame: The returns for the selected assets in the given preiod
     """
 
     if not first_returns:
-        dataframe_days = close_df.iloc[date - 1 : date + rebalancing_periods]
+        filtered_closes = close_df.iloc[date - 1 : date + rebalancing_periods]
     else:
-        dataframe_days = close_df.iloc[date : date + rebalancing_periods]
+        filtered_closes = close_df.iloc[date : date + rebalancing_periods]
 
-    dataframe_assets = dataframe_days[all_assets].pct_change()
-    dataframe_assets_filtered = dataframe_days[assets_selected].pct_change()
-    return dataframe_days, dataframe_assets, dataframe_assets_filtered
+    filtered_returns = filtered_closes[all_assets].pct_change()
+    selected_returns = filtered_closes[assets_selected].pct_change()
+    return filtered_closes, filtered_returns, selected_returns
