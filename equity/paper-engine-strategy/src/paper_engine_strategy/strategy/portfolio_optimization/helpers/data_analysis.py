@@ -92,7 +92,8 @@ def get_data_analysis(
                         macd_df.loc["signal_line", key],
                         macd_df.loc["histogram", key],
                         macd_df.loc["hist_diff", key],
-                        macd_df.loc["threshold", key],
+                        macd_df.loc["lower_threshold", key],
+                        macd_df.loc["upper_threshold", key],
                         macd_df.loc["trend", key],
                     )
                     for key in macd_df.columns
@@ -186,7 +187,8 @@ def get_data_analysis(
                         macd_df.loc["signal_line", key],
                         macd_df.loc["histogram", key],
                         macd_df.loc["hist_diff", key],
-                        macd_df.loc["threshold", key],
+                        macd_df.loc["lower_threshold", key],
+                        macd_df.loc["upper_threshold", key],
                         macd_df.loc["trend", key],
                     )
                     for key in macd_df.columns
@@ -380,10 +382,11 @@ def filter_data(
                             signal_line,
                             histogram,
                             hist_diff,
-                            threseshold,
+                            lower_threshold,
+                            upper_threshold,
                             trend,
                         )
-                        for key, macd, signal_line, histogram, hist_diff, threseshold, trend in data[
+                        for key, macd, signal_line, histogram, hist_diff, lower_threshold, upper_threshold, trend in data[
                             "macd_values"
                         ]
                         if key in filtered_keys
