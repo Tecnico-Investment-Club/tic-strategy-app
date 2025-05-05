@@ -24,9 +24,9 @@ class POHurstExpStrategy(BaseStrategy):
             Take_Profit=strategy_config.get("take_profit", 0),  # NOT USED
             Stop_Loss=strategy_config.get("stop_loss", 0),  # NOT USED
             Capital_at_Risk=strategy_config.get("capital_at_risk", 0),  # NOT USED
-            Hurst_Filter=dm.hurst_filter[strategy_config.get("hurst_filter", "STANDARD")],
+            Hurst_Filter=dm.hurst_filter[strategy_config.get("hurst_filter", "MODERATE")],
             RSIFilter=dm.rsi_filter[strategy_config.get("rsi_filter", "STANDARD")],
-            Hurst_Exponents_Period=strategy_config.get("hurst_exponents_period", 180),
+            Hurst_Exponents_Period=strategy_config.get("hurst_exponents_period", 270),
             MACD_Short_Window=strategy_config.get("macd_short_window", 12),
             MACD_Long_Window=strategy_config.get("macd_long_window", 26),
             Bollinger_Window=strategy_config.get("bollinger_window", 20),
@@ -40,10 +40,10 @@ class POHurstExpStrategy(BaseStrategy):
         )
 
         params = {
-            "best_delta": 0.124,
-            "mom_type": dm.momentum_type[strategy_config.get("momentum_type", "Cumulative_Returns")],
+            "best_delta": 0.235,
+            "mom_type": dm.momentum_type[strategy_config.get("momentum_type", "MACD")],
             "mean_rev_type": dm.mean_rev_type[strategy_config.get("mean_rev_type", "RSI")],
-            "rebalancing_period": dm.rebalancing_period[strategy_config.get("mean_rev_type", "DAILY")],
+            "rebalancing_period": dm.rebalancing_period[strategy_config.get("rebalancing_period", "DAILY")], # Mudei, estava como "mean_rev_type"
             "functional_constraints": functional_constraints,
             "rebalance_constraints": rebalance_constraints,
             "mom_days": strategy_config.get("mom_days", 30),

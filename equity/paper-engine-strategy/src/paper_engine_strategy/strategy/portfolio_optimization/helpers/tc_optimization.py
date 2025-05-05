@@ -86,7 +86,7 @@ def adjust_alpha(method, w_target, w_unbalanced, delta, verbose=False, tomas=Fal
         w_unbalanced (np.array): The weights at the end of the rebalancing period.
         delta (float): The threshold for adjusting alpha.
         verbose (bool): Whether to print additional information.
-        tomas (bool): formato dos pesos: True para [[ticker1, data, peso1], ...] e False para DataFrame (colunas assets, linhas datas). Lore: homenagem ao PM de
+        tomas (bool): formato dos pesos: True para [[ticker1, data, peso1], ...] e False para DataFrame (colunas assets, linhas datas). Lore: homenagem ao PM de Strategy Application 24/25
 
     Returns:
         float: The alpha value (proportion of the target weights for the next rebalancing period).

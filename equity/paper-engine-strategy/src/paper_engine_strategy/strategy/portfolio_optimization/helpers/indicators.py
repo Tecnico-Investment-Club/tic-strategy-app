@@ -26,7 +26,7 @@ def calculate_hurst_exponent(df):
     return hurst_values
 
 
-def get_ATR(
+""" def get_ATR(
     asset_ids: list[dm.AssetID],
     start_date: dt,
     end_date: dt,
@@ -47,7 +47,7 @@ def get_ATR(
 
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    return 1 / (1 + np.exp(-x)) """
 
 
 def calculate_bollinger_bands(df, num_std=2):
@@ -130,22 +130,25 @@ def momentum_n_days(close_df, momentum_n_days=30):
 def calculate_macd(close, short_window=12, long_window=26, signal_window=9):
     """
     Calculate the Moving Average Convergence Divergence (MACD) indicator  based on the book:
-     The Encyclopedia Of Technical Market Indicators, Second -- Robert W_ Colby -- 2,
+     The Encyclopedia Of Technical Market Indicators, Second -- Robert W_ Colby -- 2, 
      2002 -- McGraw-Hill -- 9780070120570 -- 73af9b1161d86948d3ede201c91bb68c -- Anna’s Archive.pdf
 
-    Parameters:
+     In addition, the macd will generate buy singals according to a threshold defined for the histograms
+
+    Parameters: 
     close (pd.Series): Close prices of the stock
     short_window (int): Short EMA window
     long_window (int): Long EMA window
     signal_window (int): Signal line window
 
     Returns:
-    pd.DataFrame: A DataFrame containing the MACD, Signal Line
-    and Histogram
+    pd.DataFrame: A DataFrame containing the MACD, Signal Line, Histogram,
+    Histogram Difference, Lower Histogram Threshold, Upper Histogram Threshold, 
+    and Histogram Trend for each column in the input DataFrame.
     """
     macd_results = {}
-
-    for col in close.columns:
+    
+    for col in close.columns: 
         short_ema = close[col].ewm(span=short_window, adjust=False).mean()
         long_ema = close[col].ewm(span=long_window, adjust=False).mean()
 
@@ -157,8 +160,14 @@ def calculate_macd(close, short_window=12, long_window=26, signal_window=9):
         sorted_positive_histogram = positive_histogram.sort_values(ascending=True)
 
         percentile = 0.85
-        threshold_index = int(len(sorted_positive_histogram) * percentile)
-        threshold = sorted_positive_histogram[threshold_index]
+        #threshold_index = int(len(sorted_positive_histogram) * percentile)
+        #threshold = sorted_positive_histogram[threshold_index]
+
+        lower_thresold_index = int(len(sorted_positive_histogram) * (percentile-0.8499)) # 0
+        lower_threshold = sorted_positive_histogram[lower_thresold_index]
+
+        upper_threshold_index = int(len(sorted_positive_histogram) * (percentile-0.15)) #60%
+        upper_threshold = sorted_positive_histogram[upper_threshold_index]
 
         gradient = np.gradient(histogram)
         trend = np.mean(gradient[-3:])
@@ -167,14 +176,15 @@ def calculate_macd(close, short_window=12, long_window=26, signal_window=9):
 
         # Adiciona o ultimo valor de histograma ao dicionario
         macd_results[col] = {
-            "macd": macd.iloc[-1],
-            "signal_line": signal_line.iloc[-1],
-            "histogram": histogram.iloc[-1],
-            "hist_diff": hist_diff.iloc[-1],
-            "threshold": threshold,
-            "trend": trend,
+            'macd': macd.iloc[-1],
+            'signal_line': signal_line.iloc[-1],
+            'histogram': histogram.iloc[-1],
+            'hist_diff': hist_diff.iloc[-1],
+            'lower_threshold': lower_threshold,
+            'upper_threshold': upper_threshold,
+            'trend': trend
         }
-
+    
     macd_df = pd.DataFrame(macd_results)
-
+    
     return macd_df
