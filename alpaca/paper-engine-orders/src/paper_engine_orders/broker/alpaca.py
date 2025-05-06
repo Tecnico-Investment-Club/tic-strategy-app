@@ -123,11 +123,15 @@ class Alpaca(Broker):
     def get_positions(self) -> Dict:
         """Get ticker: quantity dict."""
         self.positions = self.trading_client.get_all_positions()
-        res = {p.symbol: int(p.qty) for p in self.positions}
+        res = {p.symbol: p.qty for p in self.positions}
         return res
 
     def close_positions(self, portfolio_id: int, tickers: List[str]) -> List:
         """Close positions on the provided tickers."""
+        crypto = False
+        for ticker in tickers:
+            if '/' in ticker:
+                crypto = True
         # attempt to cancel all open orders
         positions = self.get_positions()
         position_tickers = list(positions.keys())
@@ -137,10 +141,11 @@ class Alpaca(Broker):
                 if t in position_tickers:
                     closed_position: Order = self.trading_client.close_position(t)
                     side = 1 if closed_position.side == "buy" else -1
+                    asset_id_type = "CRYPTO_TICKER" if crypto else "STOCK_TICKER"
                     orders_record = (
                         portfolio_id,
                         side,  # side
-                        "TICKER",
+                        asset_id_type,
                         closed_position.symbol,
                         datetime.utcnow(),  # order timestamp
                         0,

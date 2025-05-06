@@ -21,21 +21,21 @@ class POHurstExpStrategy(BaseStrategy):
         """Setup portfolio_optimization params."""
         res = cls()
         functional_constraints = dm.Functional_Constraints(
-            Take_Profit=strategy_config.get("take_profit", 0),  # NOT USED
-            Stop_Loss=strategy_config.get("stop_loss", 0),  # NOT USED
-            Capital_at_Risk=strategy_config.get("capital_at_risk", 0),  # NOT USED
+            Take_Profit=float(strategy_config.get("take_profit", 0)),  # NOT USED
+            Stop_Loss=float(strategy_config.get("stop_loss", 0)),  # NOT USED
+            Capital_at_Risk=float(strategy_config.get("capital_at_risk", 0)),  # NOT USED
             Hurst_Filter=dm.hurst_filter[strategy_config.get("hurst_filter", "MODERATE")],
             RSIFilter=dm.rsi_filter[strategy_config.get("rsi_filter", "STANDARD")],
-            Hurst_Exponents_Period=strategy_config.get("hurst_exponents_period", 270),
-            MACD_Short_Window=strategy_config.get("macd_short_window", 12),
-            MACD_Long_Window=strategy_config.get("macd_long_window", 26),
-            Bollinger_Window=strategy_config.get("bollinger_window", 20),
-            RSI_Window=strategy_config.get("rsi_window", 5),
+            Hurst_Exponents_Period=int(strategy_config.get("hurst_exponents_period", 270)),
+            MACD_Short_Window=int(strategy_config.get("macd_short_window", 12)),
+            MACD_Long_Window=int(strategy_config.get("macd_long_window", 26)),
+            Bollinger_Window=int(strategy_config.get("bollinger_window", 20)),
+            RSI_Window=int(strategy_config.get("rsi_window", 5)),
         )
 
         rebalance_constraints = dm.Rebalance_Constraints(
-            Turnover_Constraint=strategy_config.get("turnover_constraint", 0),  # NOT USED
-            Transaction_Cost=strategy_config.get("transaction_cost", 0.01),
+            Turnover_Constraint=float(strategy_config.get("turnover_constraint", 0)),  # NOT USED
+            Transaction_Cost=float(strategy_config.get("transaction_cost", 0.01)),
             distance_method=tc.distance_method[strategy_config.get("distance_method", "NORMALIZED_EUCLIDEAN")],
         )
 
@@ -43,10 +43,10 @@ class POHurstExpStrategy(BaseStrategy):
             "best_delta": 0.235,
             "mom_type": dm.momentum_type[strategy_config.get("momentum_type", "MACD")],
             "mean_rev_type": dm.mean_rev_type[strategy_config.get("mean_rev_type", "RSI")],
-            "rebalancing_period": dm.rebalancing_period[strategy_config.get("rebalancing_period", "DAILY")], # Mudei, estava como "mean_rev_type"
+            "rebalancing_period": dm.rebalancing_period[strategy_config.get("rebalancing_period", "DAILY")],
             "functional_constraints": functional_constraints,
             "rebalance_constraints": rebalance_constraints,
-            "mom_days": strategy_config.get("mom_days", 30),
+            "mom_days": int(strategy_config.get("mom_days", 30)),
         }
         res.params = params
         return res

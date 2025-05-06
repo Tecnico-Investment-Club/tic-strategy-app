@@ -5,7 +5,6 @@ USER root
 
 WORKDIR /project
 
-COPY .netrc /root/.netrc
 COPY requirements.txt .
 
 # install dependencies
@@ -24,4 +23,4 @@ RUN pip3 install .
 EXPOSE 9000
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["python", "-m", "paper_engine_strategy"]
+CMD ["python", "-m", "paper_engine_orders"]

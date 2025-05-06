@@ -175,7 +175,7 @@ class Loader:
 
         new_decisions_metadata = self.check_new_decisions()
         if not new_decisions_metadata:
-            logger.info("No new decision for the strategy.")
+            logger.info("No new decision for any strategy.")
             return
 
         orders_records: File = []
