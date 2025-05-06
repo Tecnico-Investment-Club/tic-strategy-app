@@ -1,15 +1,15 @@
-[project]
+[tool.poetry]
 name = "paper-engine-monitor"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "tomas-juhos",email = "tomasdavidjuhos@gmail.com"}
-]
+authors = ["tomas-juhos <tomasdavidjuhos@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = [
-]
 
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0.0"
+psycopg2 = ">=2.9.10,<3.0.0"
+alpaca-py = ">=0.40.0,<0.41.0"
+psycopg2-binary = ">=2.9.10,<3.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
