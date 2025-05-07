@@ -1,7 +1,8 @@
-SOURCE=user=XXXX password=XXXX host=localhost port=5432 dbname=tic;
-TARGET=user=XXXX password=XXXX host=localhost port=5432 dbname=tic;
-STRATEGY_TYPE=PO_HURST_EXPONENT;
+SOURCE=user=XXXX password=XXXX host=localhost port=5432 dbname=tic
+TARGET=user=XXXX password=XXXX host=localhost port=5432 dbname=tic
+STRATEGY_TYPE=PO_HURST_EXPONENT
 ASSET_TYPE=CRYPTO
-INTERVAL=1d;
-LOOKBACK=101;
+INTERVAL=1d
+LOOKBACK=101
 STRATEGY_CONFIG={"momentum_type": "MACD", "mean_rev_type": "RSI", "hurst_filter": "STANDARD", "rsi_filter": "LENIENT", "hurst_exponents_period": "101", "macd_short_window": "5", "macd_long_window": "26", "bollinger_window": "20", "rsi_window": "5"}
+

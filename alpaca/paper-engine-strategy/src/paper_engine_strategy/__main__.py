@@ -177,11 +177,10 @@ class Loader:
         self._new_strategy = False
         strategy_hash = self.get_strat_hash()
         self._strategy_id = self._target.get_strategy_id(strategy_hash)
-        config_records: File = []
         if not self._strategy_id:
             self._new_strategy = True
             self._strategy_id = self._target.get_next_strategy_id()
-            config_records = self.get_config_records(strategy_hash)
+        config_records: File = self.get_config_records(strategy_hash)
 
         logger.debug("Fetching latest data...")
         latest_datadate = self.check_new_data()
@@ -338,7 +337,7 @@ class Loader:
         ]
         return config_records
 
-    def process(self, delivery_id: int, entity: Entity, file: File) -> Dict:
+    def process(self, delivery_id: int, entity: Entity, file: File) -> Optional[Dict]:
         """Processes entity records present in delivery.
 
         Args:
