@@ -77,7 +77,7 @@ class PortfolioOptimization:
         )
 
         assets_to_buy, _ = analysis.extract_assets(
-            buy_and_sells, self.functional_constraints.hurst_exponents_period
+            buy_and_sells, 0
         )
         logger.info(f"Assets to buy: {assets_to_buy}")
 
