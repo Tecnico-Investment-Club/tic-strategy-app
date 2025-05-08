@@ -7,9 +7,9 @@ class Queries(BaseSourceQueries):
     """SOURCE strategy queries."""
 
     LOAD_LATEST_DELIVERY_METADATA = (
-        "SELECT strategy_id, MAX(delivery_id), MAX(datadate) "
+        "SELECT strategy_id, delivery_id, datadate "
         "FROM strategy_latest "
-        "GROUP BY strategy_id;"
+        "WHERE strategy_id = %s;"
     )
 
     LOAD_LATEST = (
@@ -20,6 +20,6 @@ class Queries(BaseSourceQueries):
         "       decision_ts,"
         "       weight,"
         "       decision "
-        "FROM paper_engine.strategy_latest "
+        "FROM strategy_latest "
         "WHERE strategy_id = %s;"
     )

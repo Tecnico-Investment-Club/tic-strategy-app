@@ -64,6 +64,8 @@ class Loader:
     _max_sleep: int
     _portfolio_name: str
     _cash_allocation: Decimal
+    _strategy_id: int
+    _crypto: bool
 
     _entities: Set[Entity] = {
         Entity.ORDERS,
@@ -110,7 +112,11 @@ class Loader:
         ).hexdigest()
 
         self._portfolio_name = args.portfolio_name
+        self._strategy_id = args.strategy_id
         self._cash_allocation = Decimal(args.cash_allocation)
+
+        self._crypto = True
+        self._broker.crypto = self._crypto
 
     def tear_down(self) -> None:
         """Cleans loader settings.
@@ -173,119 +179,118 @@ class Loader:
         start_time: datetime = datetime.utcnow()
         end_time: datetime
 
-        new_decisions_metadata = self.check_new_decisions()
-        if not new_decisions_metadata:
+        decision_metadata = self.check_new_decisions()
+        if not decision_metadata:
             logger.info("No new decision for any strategy.")
             return
 
         orders_records: File = []
         control_records: File = []
         config_records: File = []
-        for decision_metadata in new_decisions_metadata:
-            portfolio_id = decision_metadata[0]
-            strategy_id = decision_metadata[1]
-            latest_decision_delivery_id = decision_metadata[2]
-            latest_decision_datadate = decision_metadata[3]
 
-            strategy_records = self.get_latest_decision(strategy_id)
-            if strategy_records[0].asset_id_type[:5] == "STOCK":
-                # CHECK IF MARKET IS OPEN
-                curr_time = datetime.now(us_market_tz).time()
-                market_open = self.check_market_open(US_MARKET_OPEN, US_MARKET_CLOSE, curr_time)
-                if not market_open:
-                    logger.info("Market is not open.")
-                    continue
+        portfolio_id = decision_metadata[0]
+        strategy_id = decision_metadata[1]
+        latest_decision_delivery_id = decision_metadata[2]
+        latest_decision_datadate = decision_metadata[3]
 
-            asset_ids = [s.asset_id for s in strategy_records]
-            tradable_asset_ids = self._broker.check_tradable(asset_ids)
-            strategy_records = [
-                s for s in strategy_records if s.asset_id in tradable_asset_ids
-            ]
+        strategy_records = self.get_latest_decision(strategy_id)
 
-            current_positions = self._broker.get_positions()
+        # ASSET ID TYPE STARTS WITH STOCK
+        if strategy_records[0].asset_id_type[:5] == "STOCK":
+            self._crypto = False
+            self._broker.crypto = self._crypto
+            # CHECK IF MARKET IS OPEN
+            curr_time = datetime.now(us_market_tz).time()
+            market_open = self.check_market_open(US_MARKET_OPEN, US_MARKET_CLOSE, curr_time)
+            if not market_open:
+                logger.info("US Stock Market is not open.")
+                return
 
-            # CLOSE POSITIONS
-            closed_symbols = []
-            if current_positions:
-                current_symbols = list(current_positions.keys())
-                strategy_symbols = [s.asset_id for s in strategy_records]
-                closed_symbols = [s for s in current_symbols if s not in strategy_symbols]
-            closed_records = []
-            if closed_symbols:
-                closed_records = self._broker.close_positions(portfolio_id, closed_symbols)
+        asset_ids = [s.asset_id for s in strategy_records]
+        tradable_asset_ids = self._broker.check_tradable(asset_ids)
+        strategy_records = [
+            s for s in strategy_records if s.asset_id in tradable_asset_ids
+        ]
 
-            open_positions = [s for s in strategy_records if s.asset_id not in closed_symbols]
+        current_positions = self._broker.get_positions()
 
-            long_portfolio = [p for p in open_positions if p.decision == 1]
-            long_asset_ids = [p.asset_id for p in long_portfolio]
+        # CLOSE POSITIONS
+        closed_symbols = []
+        if current_positions:
+            current_symbols = list(current_positions.keys())
+            strategy_symbols = [s.asset_id for s in strategy_records]
+            closed_symbols = [s for s in current_symbols if s not in strategy_symbols]
+        closed_records = []
+        if closed_symbols and not self._dry_orders:
+            closed_records = self._broker.close_positions(portfolio_id, closed_symbols)
 
-            short_portfolio = [
-                p
-                for p in open_positions
-                if p.decision == -1 and p.asset_id not in long_asset_ids
-            ]
-            short_asset_ids = list({p.asset_id for p in short_portfolio})
-            shortable_ids = self._broker.check_shortable(short_asset_ids)
-            short_portfolio = [
-                p for p in short_portfolio if p.asset_id in shortable_ids
-            ]
-            # MAKE TICKERS UNIQUE
-            seen_asset_ids = []
-            unique_short_portfolio = []
-            for p in short_portfolio:
-                if p.asset_id not in seen_asset_ids:
-                    seen_asset_ids.append(p.asset_id)
-                    unique_short_portfolio.append(p)
+        open_positions = [s for s in strategy_records if s.asset_id not in closed_symbols]
 
-            account_capital = self._broker.get_account_capital()
+        long_portfolio = [p for p in open_positions if p.decision == 1]
+        long_asset_ids = [p.asset_id for p in long_portfolio]
 
-            ############################################
-            ### FOR NOW LONG ONLY IS HARD CODED HERE ###
-            ############################################
-            long_capital = account_capital
-            if strategy_records[0].asset_id_type[:6] == "CRYPTO":
-                # CASH CUSHION FOR CRYPTO SLIPPAGE
-                long_capital = (1 - self._cash_allocation) * long_capital
-            short_capital = Decimal("0")
-            ############################################
+        short_portfolio = [
+            p
+            for p in open_positions
+            if p.decision == -1 and p.asset_id not in long_asset_ids
+        ]
+        short_asset_ids = list({p.asset_id for p in short_portfolio})
+        shortable_ids = self._broker.check_shortable(short_asset_ids)
+        short_portfolio = [
+            p for p in short_portfolio if p.asset_id in shortable_ids
+        ]
+        # MAKE TICKERS UNIQUE
+        seen_asset_ids = []
+        unique_short_portfolio = []
+        for p in short_portfolio:
+            if p.asset_id not in seen_asset_ids:
+                seen_asset_ids.append(p.asset_id)
+                unique_short_portfolio.append(p)
 
-            long_weighting = Weighting.setup(
-                self._broker, long_capital, long_portfolio, current_positions
-            ) if long_portfolio and long_capital > 0 else None
-            short_weighting = Weighting.setup(
-                self._broker, short_capital, unique_short_portfolio, current_positions
-            ) if unique_short_portfolio and short_capital > 0 else None
+        account_capital = self._broker.get_account_capital()
 
-            long_orders = long_weighting.get_orders_params() if long_weighting else {"buy": [], "sell": []}
-            short_orders = short_weighting.get_orders_params() if short_weighting else {"buy": [], "sell": []}
+        ############################################
+        ### FOR NOW LONG ONLY IS HARD CODED HERE ###
+        ############################################
+        long_capital = account_capital
+        if self._crypto:
+            # CASH CUSHION FOR CRYPTO SLIPPAGE
+            long_capital = (1 - self._cash_allocation) * long_capital
+        short_capital = Decimal("0")
+        ############################################
 
-            closing_orders = long_orders["sell"] + short_orders["buy"]
-            opening_orders = long_orders["buy"] + short_orders["sell"]
+        long_weighting = Weighting.setup(
+            self._broker, long_capital, long_portfolio, current_positions
+        ) if long_portfolio and long_capital > 0 else None
+        short_weighting = Weighting.setup(
+            self._broker, short_capital, unique_short_portfolio, current_positions
+        ) if unique_short_portfolio and short_capital > 0 else None
 
-            if not self._dry_orders:
-                self._broker.submit_orders(closing_orders)
-                self._broker.submit_orders(opening_orders)
+        long_orders = long_weighting.get_orders_params() if long_weighting else {"buy": [], "sell": []}
+        short_orders = short_weighting.get_orders_params() if short_weighting else {"buy": [], "sell": []}
 
-            long_records = long_weighting.get_orders_records(portfolio_id) if long_weighting else []
-            short_records = short_weighting.get_orders_records(portfolio_id) if short_weighting else []
-            orders_records.extend(long_records + short_records + closed_records)
+        closing_orders = long_orders["sell"] + short_orders["buy"]
+        opening_orders = long_orders["buy"] + short_orders["sell"]
 
-            control_records.append(
-                (
-                    portfolio_id,
-                    latest_decision_delivery_id,
-                    latest_decision_datadate,
-                    datetime.utcnow(),
-                )
+        if not self._dry_orders:
+            self._broker.submit_orders(closing_orders)
+            self._broker.submit_orders(opening_orders)
+
+        long_records = long_weighting.get_orders_records(portfolio_id) if long_weighting else []
+        short_records = short_weighting.get_orders_records(portfolio_id) if short_weighting else []
+        orders_records.extend(long_records + short_records + closed_records)
+
+        control_records.append(
+            (
+                portfolio_id,
+                latest_decision_delivery_id,
+                latest_decision_datadate,
+                datetime.utcnow(),
             )
-            config_records.append(
-                self.get_config_record(portfolio_id, strategy_id)
-            )
-
-        if not orders_records:
-            # when only stock strategies are deployed
-            # and process runs outside market hours
-            return
+        )
+        config_records.append(
+            self.get_config_record(portfolio_id, strategy_id)
+        )
 
         delivery_id: int = self._target.get_next_delivery_id()
         delivery: Dict = {
@@ -341,43 +346,41 @@ class Loader:
             portfolio_id = self._target.get_next_portfolio_id()
         return portfolio_id
 
-    def check_new_decisions(self) -> Optional[File]:
+    def check_new_decisions(self) -> Optional[Record]:
         """Check latest strategy state."""
-        latest_decision_metadata = self._source.get_file(
-            query=StrategyQueries.LOAD_LATEST_DELIVERY_METADATA
+        strat_metadata = self._source.fetch_one(
+            query=StrategyQueries.LOAD_LATEST_DELIVERY_METADATA,
+            variable=(self._strategy_id,)
         )
-        if not latest_decision_metadata:
+        if not strat_metadata:
             return None
 
-        res: File = []
-        for strat_metadata in latest_decision_metadata:
-            strategy_id = strat_metadata[0]
-            latest_decision_delivery_id = strat_metadata[1]
-            latest_decision_datadate = strat_metadata[2]
+        strategy_id = strat_metadata[0]
+        latest_decision_delivery_id = strat_metadata[1]
+        latest_decision_datadate = strat_metadata[2]
 
-            portfolio_id = self.get_portfolio_id(strategy_id)
+        portfolio_id = self.get_portfolio_id(strategy_id)
 
-            last_decision_metadata = self._target.get_current_state(
-                query=queries.OrdersControlQueries.LOAD_STATE,
-                args=[(portfolio_id,)],
-            )
+        last_decision_metadata = self._target.get_current_state(
+            query=queries.OrdersControlQueries.LOAD_STATE,
+            args=[(portfolio_id,)],
+        )
 
-            r = (
-                portfolio_id,
-                strategy_id,
-                latest_decision_delivery_id,
-                latest_decision_datadate,
-            )
-            if not last_decision_metadata:
-                res.append(r)
-                continue
+        r = (
+            portfolio_id,
+            strategy_id,
+            latest_decision_delivery_id,
+            latest_decision_datadate,
+        )
+        if not last_decision_metadata:
+            return r
 
-            last_decision_delivery_id = last_decision_metadata[0][1]
+        last_decision_delivery_id = last_decision_metadata[0][1]
 
-            if last_decision_delivery_id < latest_decision_delivery_id:
-                res.append(r)
+        if last_decision_delivery_id < latest_decision_delivery_id:
+            return r
 
-        return res
+        return None
 
     def get_latest_decision(self, strategy_id: int) -> List[source_model.Strategy]:
         """Get latest state of strategy."""
@@ -646,6 +649,15 @@ def parse_args() -> argparse.Namespace:
         type=str,
         required=False,
         help="Secret key.",
+    )
+
+    parser.add_argument(
+        "--strategy_id",
+        dest="strategy_id",
+        default=os.getenv("STRATEGY_ID"),
+        type=int,
+        required=False,
+        help="Strategy ID.",
     )
 
     a = parser.parse_args()

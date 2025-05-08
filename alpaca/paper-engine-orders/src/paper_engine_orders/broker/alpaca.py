@@ -28,6 +28,8 @@ class Alpaca(Broker):
     latest_order = None
     positions: List[Position]
 
+    crypto: bool
+
     def __init__(self, api_key: str, secret_key: str) -> None:
         self.trading_client = TradingClient(api_key, secret_key, paper=True)
         self.trading_stream = TradingStream(api_key, secret_key, paper=True)
@@ -54,9 +56,14 @@ class Alpaca(Broker):
 
     def check_tradable(self, symbols) -> List[str]:
         """Get all available tickers from the broker."""
+        if self.crypto:
+            symbols = [f'{s[:-3]}/{s[-3:]}' for s in symbols]
         assets = self.get_all_assets()
         available_asset_ids = [a.symbol for a in assets]
         tradable_asset_ids = [s for s in symbols if s in available_asset_ids]
+
+        if self.crypto:
+            tradable_asset_ids = [f'{s[:-4]}{s[-3:]}' for s in tradable_asset_ids]
 
         return tradable_asset_ids
 
@@ -72,18 +79,17 @@ class Alpaca(Broker):
 
     def get_latest_book(self, symbols: List[str]) -> Tuple[Dict, Dict]:
         """Get latest bids and asks for the provided tickers."""
-        crypto = False
-        for symbol in symbols:
-            if '/' in symbol:
-                crypto = True
-        if crypto:
+        if self.crypto:
+            symbols = [f'{s[:-3]}/{s[-3:]}' for s in symbols]
             request_params = CryptoLatestQuoteRequest(symbol_or_symbols=symbols)
             latest_quotes = self.crypto_data_client.get_crypto_latest_quote(request_params)
+            latest_asks = {f'{k[:-4]}{k[-3:]}': Decimal(v.ask_price) for k, v in latest_quotes.items()}
+            latest_bids = {f'{k[:-4]}{k[-3:]}': Decimal(v.bid_price) for k, v in latest_quotes.items()}
         else:
             request_params = StockLatestQuoteRequest(symbol_or_symbols=symbols)
             latest_quotes = self.stock_data_client.get_stock_latest_quote(request_params)
-        latest_asks = {k: Decimal(v.ask_price) for k, v in latest_quotes.items()}
-        latest_bids = {k: Decimal(v.bid_price) for k, v in latest_quotes.items()}
+            latest_asks = {k: Decimal(v.ask_price) for k, v in latest_quotes.items()}
+            latest_bids = {k: Decimal(v.bid_price) for k, v in latest_quotes.items()}
 
         return latest_asks, latest_bids
 
@@ -128,10 +134,6 @@ class Alpaca(Broker):
 
     def close_positions(self, portfolio_id: int, tickers: List[str]) -> List:
         """Close positions on the provided tickers."""
-        crypto = False
-        for ticker in tickers:
-            if '/' in ticker:
-                crypto = True
         # attempt to cancel all open orders
         positions = self.get_positions()
         position_tickers = list(positions.keys())
@@ -139,9 +141,10 @@ class Alpaca(Broker):
         if len(tickers) > 0:
             for t in tickers:
                 if t in position_tickers:
+
                     closed_position: Order = self.trading_client.close_position(t)
                     side = 1 if closed_position.side == "buy" else -1
-                    asset_id_type = "CRYPTO_TICKER" if crypto else "STOCK_TICKER"
+                    asset_id_type = "CRYPTO_TICKER" if self.crypto else "STOCK_TICKER"
                     orders_record = (
                         portfolio_id,
                         side,  # side
