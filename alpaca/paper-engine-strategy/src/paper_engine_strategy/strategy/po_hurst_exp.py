@@ -51,16 +51,15 @@ class POHurstExpStrategy(BaseStrategy):
         res.params = params
         return res
 
-    def get_weights(self, records: List[SpotPrices], prev_weights: List[StrategyLatest]) -> File:
+    def get_weights(self, records: List[SpotPrices], prev_weights: List[List]) -> File:
         """Pick portfolio according to thresholds."""
         closes = self.records_2_df(records)
-        prev_wgts = [[p.asset_id, p.datadate, p.weight] for p in prev_weights]
 
         params = self.params
         p = PortfolioOptimization(
             **params,
             closes=closes,
-            previous_weights=prev_wgts
+            previous_weights=prev_weights
         )
         strategy_records = p.get_weights()
 

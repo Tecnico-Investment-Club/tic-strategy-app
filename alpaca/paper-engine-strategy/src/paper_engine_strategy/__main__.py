@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Set, Tuple, Type, Optional
 
 import paper_engine_strategy._filters as filters
 from paper_engine_strategy._types import File, Key, Keys
+import paper_engine_strategy.broker as broker
 import paper_engine_strategy._date_helpers as date_helpers
 import paper_engine_strategy._helpers as helpers
 import paper_engine_strategy.model as model
@@ -45,6 +46,7 @@ class Loader:
     _interval: str
     _lookback: int
     _strategy_config: Dict[str, Any]
+    _requires_prev_weights: bool
 
     # ---
     _strategy_id: Optional[int]
@@ -52,6 +54,7 @@ class Loader:
 
     _source: source.Source
     _target: target.Target
+    _broker: broker.Alpaca
     _dry_run: bool
     _min_sleep: int
     _max_sleep: int
@@ -93,6 +96,7 @@ class Loader:
         Connects to source, all possible targets and notification components.
         """
         self._dry_run = args.dry_run
+        self._requires_prev_weights = args.requires_prev_weights
         self._min_sleep = args.min_sleep
         self._max_sleep = args.max_sleep
 
@@ -101,6 +105,10 @@ class Loader:
 
         # prepare persistence
         self._target = target.Target(args.target)
+
+        if self._requires_prev_weights:
+            # ALPACA CONNECTION
+            self._broker = broker.Alpaca(args.api_key, args.secret_key)
 
         self._strategy_type = args.strategy_type
         self._strategy_config = json.loads(args.strategy_config)
@@ -190,10 +198,9 @@ class Loader:
 
         strategy_data = self.get_strategy_data(latest_datadate)
         strategy_data = self.filter_data(strategy_data)
-        prev_wgts = self.get_prev_wgts()
 
         logger.debug("Running Strategy...")
-        strategy_records = self.run_strategy(strategy_data, prev_wgts)
+        strategy_records = self.run_strategy(strategy_data)
 
         control_records: File = [(self._strategy_id, datetime.utcnow())]
 
@@ -269,15 +276,6 @@ class Loader:
         records = [SpotPrices.from_source(r) for r in raw_records]
         return records
 
-    def get_prev_wgts(self):
-        e = Entity.STRATEGY_LATEST
-        query: BaseQueries = self._queries[e]
-        all_prev_wgts: List[Tuple] = self._target.get_current_state(
-            query=query.LOAD_FULL_STATE,
-        )
-        prev_wgts = [self._state[e].from_target(r) for r in all_prev_wgts if r[0] == self._strategy_id]
-        return prev_wgts
-
     def filter_data(self, strategy_data: List[SpotPrices]):
         if self._asset_type == "STOCK":
             res = [s for s in strategy_data if s.symbol in filters.STOCK]
@@ -290,7 +288,9 @@ class Loader:
             return None
         return res
 
-    def run_strategy(self, data, prev_wgts=None) -> File:
+    def run_strategy(self, data) -> File:
+        prev_wgts = self._broker.get_current_weights()
+
         strategy = self._strategy.setup(self._strategy_config)
         raw_strategy_records = strategy.get_weights(data, prev_wgts)
         strategy_records = [
@@ -508,6 +508,22 @@ def parse_args() -> argparse.Namespace:
     parser.set_defaults(dry_run=ast.literal_eval(os.environ.get("DRY_RUN", "False")))
 
     parser.add_argument(
+        "--requires_prev_weights",
+        dest="requires_prev_weights",
+        action="store_true",
+        required=False,
+        help="Disable data persistence (parse only).",
+    )
+    parser.add_argument(
+        "--no-requires_prev_weights",
+        dest="requires_prev_weights",
+        action="store_false",
+        required=False,
+        help="Enable data persistence (default).",
+    )
+    parser.set_defaults(requires_prev_weights=ast.literal_eval(os.environ.get("REQUIRES_PREV_WEIGHTS", "True")))
+
+    parser.add_argument(
         "--target",
         dest="target",
         type=str,
@@ -578,6 +594,24 @@ def parse_args() -> argparse.Namespace:
         type=str,
         required=False,
         help="Strategy configuration JSON.",
+    )
+
+    parser.add_argument(
+        "--api_key",
+        dest="api_key",
+        default=os.getenv("API_KEY"),
+        type=str,
+        required=False,
+        help="API key.",
+    )
+
+    parser.add_argument(
+        "--secret_key",
+        dest="secret_key",
+        default=os.getenv("SECRET_KEY"),
+        type=str,
+        required=False,
+        help="Secret key.",
     )
 
 

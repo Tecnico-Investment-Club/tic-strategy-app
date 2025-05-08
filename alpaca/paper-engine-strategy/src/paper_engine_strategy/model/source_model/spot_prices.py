@@ -51,4 +51,4 @@ class SpotPrices(SourceState):
         )
 
     def __repr__(self) -> str:
-        return f"{self.symbol}, {self.open_time}"
+        return f"({self.symbol}, {self.open_time}, {self.close_price})"

@@ -6,7 +6,7 @@ from enum import Enum
 class Entity(str, Enum):
     """Type of Entity."""
 
-    STRATEGY = "portfolio_optimization"
+    STRATEGY = "strategy"
     STRATEGY_CONFIG = "strategy_config"
     STRATEGY_CONTROL = "strategy_control"
     STRATEGY_LATEST = "strategy_latest"
