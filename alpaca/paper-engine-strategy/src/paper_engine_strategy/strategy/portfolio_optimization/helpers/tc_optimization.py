@@ -95,16 +95,19 @@ def adjust_alpha(method, w_target, w_unbalanced, delta, verbose=False, tomas=Fal
     if tomas:
         # transformar os pesos no nosso formato
 
-        w_target = pd.DataFrame(w_target, columns=["ticker", "Date", "weight"])
-        w_unbalanced = pd.DataFrame(w_unbalanced, columns=["ticker", "Date", "weight"])
+        # w_target = pd.DataFrame(w_target, columns=["ticker", "Date", "weight"])
+        # w_unbalanced = pd.DataFrame(w_unbalanced, columns=["ticker", "Date", "weight"])
 
-        w_target = w_target.pivot(index="Date", columns="ticker", values="weight")
-        w_unbalanced = w_unbalanced.pivot(
-            index="Date", columns="ticker", values="weight"
-        )
+        # w_target = w_target.pivot(index="Date", columns="ticker", values="weight")
+        # w_unbalanced = w_unbalanced.pivot(
+        #     index="Date", columns="ticker", values="weight"
+        # )
 
-        w_target = w_target.reset_index()
-        w_unbalanced = w_unbalanced.reset_index()
+        # w_target = w_target.reset_index()
+        # w_unbalanced = w_unbalanced.reset_index()
+
+        w_target = np.array([w[2] for w in w_target])
+        w_unbalanced = np.array([w[2] for w in w_unbalanced])
 
     distance = DistanceMethod.calculate_distance(method, w_target, w_unbalanced)
     if distance == 0:

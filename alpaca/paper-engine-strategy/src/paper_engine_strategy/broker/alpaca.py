@@ -66,5 +66,5 @@ class Alpaca(Broker):
                 wgt = position["notional"] / short_value
             else:
                 return None
-            weights.append([symbol, datetime.utcnow(), wgt])
+            weights.append([symbol, datetime.utcnow(), float(wgt)])
         return weights

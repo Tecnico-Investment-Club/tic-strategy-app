@@ -79,27 +79,33 @@ class PortfolioOptimization:
         assets_to_buy, _ = analysis.extract_assets(
             buy_and_sells, 0
         )
-        logger.info(f"Assets to buy: {assets_to_buy}")
+        logger.debug(f"Assets to buy: {assets_to_buy}")
 
         if len(assets_to_buy) > 0:
             buy_array, _, _, _ = pw.calculate_uniform_weights(
                 assets_to_buy, [], shorting_value=0
             )
-            logger.info(f"Buy array: {buy_array}")
+            logger.debug(f"Buy array: {buy_array}")
 
             target_weights = [
                 [ticker, self.last_date, weight]
                 for ticker, weight in zip(assets_to_buy, buy_array)
             ]
-            logger.info(f"Target weights: {target_weights}")
+            logger.debug(f"Target weights: {target_weights}")
 
             if self.previous_weights is not None:
+                prev_assets = [pw[0] for pw in self.previous_weights]
+                excluded_assets = [a for a in prev_assets if a not in assets_to_buy]
+                target_weights.extend([[a, self.last_date, 0] for a in excluded_assets])
+
+                target_weights.sort(key=lambda x: x[0])
+                self.previous_weights.sort(key=lambda x: x[0])
 
                 alpha = tc.adjust_alpha(
                     self.rebalance_constraints.distance_method,
                     target_weights,
                     self.previous_weights,
-                    self.Best_Delta,
+                    self.best_delta,
                     tomas=True,
                 )
 
@@ -110,23 +116,23 @@ class PortfolioOptimization:
                     weight = alpha * prev[2] + (1 - alpha) * target[2]
                     rebalanced_weights.append([ticker, date, weight])
 
-                logger.info(f"Rebalanced weights: {rebalanced_weights}")
+                logger.debug(f"Rebalanced weights: {rebalanced_weights}")
                 return rebalanced_weights
 
             else:
-                logger.info("No previous weights, using target weights")
+                logger.debug("No previous weights, using target weights")
                 return target_weights
 
         else:
-            logger.info("No assets to buy")
+            logger.info("No assets to buy.")
             if self.previous_weights:
-                logger.info("Using previous weights")
+                logger.info("Using previous weights.")
                 return [
                     [ticker, self.last_date, weight]
                     for ticker, _, weight in self.previous_weights
                 ]
             else:
-                logger.info("No previous weights, returning equal weights")
+                logger.info("No previous weights, returning equal weights.")
                 equal_weights = [
                     [ticker, self.last_date, 1 / len(self.closes.columns)]
                     for ticker in self.closes.columns
