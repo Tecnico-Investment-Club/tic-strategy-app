@@ -278,32 +278,18 @@ class Loader:
 
         long_records = long_weighting.get_orders_records(portfolio_id) if long_weighting else []
         short_records = short_weighting.get_orders_records(portfolio_id) if short_weighting else []
-        orders_records.extend(long_records + short_records + closed_records)
 
-        control_records.append(
-            (
+        orders_records = long_records + short_records + closed_records
+        control_records = [(
                 portfolio_id,
                 latest_decision_delivery_id,
                 latest_decision_datadate,
                 datetime.utcnow(),
-            )
-        )
-        config_records.append(
-            self.get_config_record(portfolio_id, strategy_id)
-        )
+            )]
+        config_records = [self.get_config_record(portfolio_id, strategy_id)]
 
         delivery_id: int = self._target.get_next_delivery_id()
         delivery: Dict = {
-            Entity.ORDERS: self.process(
-                delivery_id=delivery_id,
-                entity=Entity.ORDERS,
-                file=orders_records,
-            ),
-            Entity.ORDERS_LATEST: self.process(
-                delivery_id=delivery_id,
-                entity=Entity.ORDERS_LATEST,
-                file=orders_records,
-            ),
             Entity.ORDERS_CONTROL: self.process(
                 delivery_id=delivery_id,
                 entity=Entity.ORDERS_CONTROL,
@@ -315,6 +301,18 @@ class Loader:
                 file=config_records,
             ),
         }
+        if orders_records:
+            logger.info('New orders placed.')
+            delivery[Entity.ORDERS] = self.process(
+                delivery_id=delivery_id,
+                entity=Entity.ORDERS,
+                file=orders_records,
+            )
+            delivery[Entity.ORDERS_LATEST] = self.process(
+                delivery_id=delivery_id,
+                entity=Entity.ORDERS_LATEST,
+                file=orders_records,
+            )
 
         # persist delivery
         if not self._dry_run:

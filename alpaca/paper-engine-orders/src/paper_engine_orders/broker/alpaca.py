@@ -129,7 +129,7 @@ class Alpaca(Broker):
     def get_positions(self) -> Dict:
         """Get ticker: quantity dict."""
         self.positions = self.trading_client.get_all_positions()
-        res = {p.symbol: p.qty for p in self.positions}
+        res = {p.symbol: Decimal(p.qty) for p in self.positions}
         return res
 
     def close_positions(self, portfolio_id: int, tickers: List[str]) -> List:

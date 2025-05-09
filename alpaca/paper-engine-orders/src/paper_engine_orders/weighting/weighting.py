@@ -26,6 +26,7 @@ class Weighting(BaseWeight):
     real_weights: Dict
     quantities: Dict
     notional: Dict
+    prices: Dict
 
     total_value: Decimal
 
@@ -57,17 +58,17 @@ class Weighting(BaseWeight):
         strat_tickers = [s.asset_id for s in self.strategy_records]
         latest_asks, latest_bids = self.broker.get_latest_book(strat_tickers)
 
-        prices: Dict = {}
+        self.prices: Dict = {}
         for s in self.strategy_records:
             if s.decision == 1:
-                prices[s.asset_id] = latest_asks[s.asset_id] if s.asset_id in latest_asks.keys() else 0
+                self.prices[s.asset_id] = latest_asks[s.asset_id] if s.asset_id in latest_asks.keys() else 0
             else:
-                prices[s.asset_id] = latest_bids[s.asset_id] if s.asset_id in latest_bids.keys() else 0
+                self.prices[s.asset_id] = latest_bids[s.asset_id] if s.asset_id in latest_bids.keys() else 0
 
         # FILTER OUT STRAT RECORDS WITH TICKERS WITH PRICE 0
         available_strat_records = []
         for s in self.strategy_records:
-            if prices[s.asset_id] != 0:
+            if self.prices[s.asset_id] != 0:
                 available_strat_records.append(s)
         self.strategy_records = available_strat_records
 
@@ -79,14 +80,14 @@ class Weighting(BaseWeight):
         for s in self.strategy_records:
             target_notional = self.capital * self.target_weights[s.asset_id]
 
-            price = prices[s.asset_id]
+            price = self.prices[s.asset_id]
             if s.asset_id_type == "STOCK_TICKER":
                 quantity = Decimal(target_notional // price)
             else:
                 # CRYPTO_TICKER
                 quantity = Decimal(target_notional / price)
 
-            # TODO: ALWAYS BUY/SELL 1 (?)
+            # ALWAYS BUY/SELL 1 (?)
             if quantity == Decimal(0):
                 quantity = Decimal(1)
             quantities[s.asset_id] = quantity
@@ -96,7 +97,7 @@ class Weighting(BaseWeight):
 
             used_capital += real_notional
 
-        # TODO: IMPLEMENT REALOCATION OF NOT ALLOCATED CAPITAL (?)
+        # IMPLEMENT REALOCATION OF NOT ALLOCATED CAPITAL (?)
 
         self.real_weights = {k: v / used_capital for k, v in notional.items()}
         self.total_value = sum([v for v in notional.values()])
@@ -113,30 +114,35 @@ class Weighting(BaseWeight):
                 if s.asset_id in self.current_positions.keys()
                 else None
             )
+            price = self.prices[s.asset_id]
             if s.decision == 1:
                 quantity = (
                     target_quantity - curr_quantity
                     if curr_quantity
                     else target_quantity
                 )
-                if quantity < 0:
-                    order_params = self.broker.sell_params(s.asset_id, quantity)
-                    orders_params["sell"].append(order_params)
-                elif quantity > 0:
-                    order_params = self.broker.buy_params(s.asset_id, quantity)
-                    orders_params["buy"].append(order_params)
+                notional_change = abs(quantity * price)
+                if notional_change > 1:
+                    if quantity < 0:
+                        order_params = self.broker.sell_params(s.asset_id, quantity)
+                        orders_params["sell"].append(order_params)
+                    elif quantity > 0:
+                        order_params = self.broker.buy_params(s.asset_id, quantity)
+                        orders_params["buy"].append(order_params)
             else:
                 quantity = (
                     target_quantity + curr_quantity
                     if curr_quantity
                     else target_quantity
                 )
-                if quantity > 0:
-                    order_params = self.broker.sell_params(s.asset_id, quantity)
-                    orders_params["sell"].append(order_params)
-                elif quantity < 0:
-                    order_params = self.broker.buy_params(s.asset_id, quantity)
-                    orders_params["buy"].append(order_params)
+                notional_change = abs(quantity * price)
+                if notional_change > 1:
+                    if quantity > 0:
+                        order_params = self.broker.sell_params(s.asset_id, quantity)
+                        orders_params["sell"].append(order_params)
+                    elif quantity < 0:
+                        order_params = self.broker.buy_params(s.asset_id, quantity)
+                        orders_params["buy"].append(order_params)
 
         return orders_params
 
@@ -155,7 +161,8 @@ class Weighting(BaseWeight):
                 if curr_quantity
                 else target_quantity
             )
-            if quantity:
+            notional_change = abs(quantity * self.prices[s.asset_id])
+            if quantity and notional_change > 1:
                 records.append(
                     (
                         portfolio_id,
