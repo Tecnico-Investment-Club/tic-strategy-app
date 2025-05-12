@@ -4,11 +4,12 @@ version = "0.1.0"
 description = ""
 authors = ["tomas-juhos <tomasdavidjuhos@gmail.com>"]
 readme = "README.md"
+packages = [{include = "paper_engine_portfolio"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0.0"
-psycopg2 = ">=2.9.10,<3.0.0"
 alpaca-py = ">=0.40.0,<0.41.0"
+psycopg2 = ">=2.9.10,<3.0.0"
 psycopg2-binary = ">=2.9.10,<3.0.0"
 
 [build-system]
