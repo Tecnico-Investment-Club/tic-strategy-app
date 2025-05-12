@@ -1,21 +1,18 @@
-[project]
+[tool.poetry]
 name = "paper-engine-strategy"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "tomas-juhos",email = "tomasdavidjuhos@gmail.com"}
-]
+authors = ["tomas-juhos <tomasdavidjuhos@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.11,<4.0.0"
-dependencies = [
-    "notebook (>=7.4.1,<8.0.0)",
-    "psycopg2 (>=2.9.10,<3.0.0)",
-    "pandas (>=2.2.3,<3.0.0)",
-    "hurst (>=0.0.5,<0.0.6)",
-    "pydantic (>=2.11.4,<3.0.0)",
-    "alpaca-py (>=0.40.0,<0.41.0)"
-]
+packages = [{include = "paper_engine_strategy"}]
 
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0.0"
+psycopg2 = "(>=2.9.10,<3.0.0)"
+pandas = "(>=2.2.3,<3.0.0)"
+hurst = "(>=0.0.5,<0.0.6)"
+pydantic = "(>=2.11.4,<3.0.0)"
+alpaca-py = "(>=0.40.0,<0.41.0)"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
