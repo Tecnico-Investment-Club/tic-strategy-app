@@ -193,7 +193,7 @@ class Loader:
         logger.debug("Fetching latest data...")
         latest_datadate = self.check_new_data()
         if not self._new_strategy and not latest_datadate:
-            logger.info("No new data to make decisions.")
+            logger.debug("No new data to make decisions.")
             return
 
         strategy_data = self.get_strategy_data(latest_datadate)

@@ -181,12 +181,8 @@ class Loader:
 
         decision_metadata = self.check_new_decisions()
         if not decision_metadata:
-            logger.info("No new decision for any strategy.")
+            logger.debug("No new decision for any strategy.")
             return
-
-        orders_records: File = []
-        control_records: File = []
-        config_records: File = []
 
         portfolio_id = decision_metadata[0]
         strategy_id = decision_metadata[1]
@@ -203,7 +199,7 @@ class Loader:
             curr_time = datetime.now(us_market_tz).time()
             market_open = self.check_market_open(US_MARKET_OPEN, US_MARKET_CLOSE, curr_time)
             if not market_open:
-                logger.info("US Stock Market is not open.")
+                logger.debug("US Stock Market is not open.")
                 return
 
         asset_ids = [s.asset_id for s in strategy_records]
