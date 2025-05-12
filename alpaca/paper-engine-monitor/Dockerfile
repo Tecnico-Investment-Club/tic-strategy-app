@@ -1,16 +1,21 @@
-FROM python:3.10.5-alpine3.16
+FROM python:3.11.3-alpine3.18
 
 LABEL maintainer="Tomas Juhos"
 USER root
 
 WORKDIR /project
 
-COPY .netrc /root/.netrc
 COPY requirements.txt .
 
 # install dependencies
 RUN apk update
 RUN python -m pip install --no-cache-dir --upgrade pip \
+&& apk add --no-cache \
+        postgresql-dev \
+        gcc \
+        libc-dev \
+        make \
+        dumb-init \
     && pip3 install --no-cache-dir -r requirements.txt \
     && rm -rf /root/./.cache \
     && find . -type d -name __pycache__ -exec rm -r {} \+ \
