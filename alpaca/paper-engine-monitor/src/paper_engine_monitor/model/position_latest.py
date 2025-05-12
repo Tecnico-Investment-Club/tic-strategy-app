@@ -1,4 +1,4 @@
-"""Position data model."""
+"""Position Latest data model."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -6,14 +6,14 @@ from hashlib import sha256
 import logging
 from typing import List, Optional, Tuple
 
-from paper_engine_portfolio._types import Key, Keys, Record
-from paper_engine_portfolio.model.base import State
+from paper_engine_monitor._types import Key, Keys, Record
+from paper_engine_monitor.model.base import State
 
 logger = logging.getLogger(__name__)
 
 
-class Position(State):
-    """Position state."""
+class PositionLatest(State):
+    """Position Latest state."""
 
     portfolio_id: int  # entity key
     side: int
@@ -43,10 +43,10 @@ class Position(State):
     @property
     def key(self) -> Key:
         """Object key."""
-        return (self.portfolio_id, self.asset_id, self.position_ts)
+        return (self.portfolio_id, self.asset_id)
 
     @classmethod
-    def from_source(cls, record: Record) -> "Position":
+    def from_source(cls, record: Record) -> "PositionLatest":
         """Creates object from source record."""
         res = cls()
         res.event_id = None
@@ -63,7 +63,7 @@ class Position(State):
         return res
 
     @classmethod
-    def from_target(cls, record: Tuple) -> "Position":
+    def from_target(cls, record: Tuple) -> "PositionLatest":
         """Creates object from target record."""
         res = cls()
         res.event_id = None
@@ -83,19 +83,21 @@ class Position(State):
         return res
 
     @classmethod
-    def removal_instance(cls, event_id: int, delivery_id: int, key: Key) -> "Position":
+    def removal_instance(
+        cls, event_id: int, delivery_id: int, key: Key
+    ) -> "PositionLatest":
         """Creates an empty object instance (for removal event logs)."""
         res = cls()
         res.event_id = event_id
         res.delivery_id = delivery_id
-        (res.portfolio_id, res.asset_id, res.position_ts) = key
+        (res.portfolio_id, res.asset_id) = key
 
         return res
 
     @staticmethod
     def list_ids_from_source(records: List[Record]) -> Keys:
         """Creates a list with all entity keys from source file."""
-        return [(r[0], r[3], r[4]) for r in records]
+        return [(r[0], r[3]) for r in records]
 
     def as_tuple(self) -> Tuple:
         """Returns object values as a tuple."""

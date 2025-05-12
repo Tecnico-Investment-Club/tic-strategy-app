@@ -1,4 +1,4 @@
-"""The paper_engine_portfolio project."""
+"""The paper_engine_monitor project."""
 
 # Source the package version from the pyproject.toml file.
 try:

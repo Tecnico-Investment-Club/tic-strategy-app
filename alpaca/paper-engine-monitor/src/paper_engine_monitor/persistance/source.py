@@ -7,8 +7,8 @@ import psycopg2
 from psycopg2.extensions import connection as Connection, cursor as Cursor
 from psycopg2.extras import execute_values
 
-from paper_engine_portfolio._encoders import cast_money
-from paper_engine_portfolio._types import File, Record
+from paper_engine_monitor._encoders import cast_money
+from paper_engine_monitor._types import File, Record
 
 logger = logging.getLogger(__name__)
 

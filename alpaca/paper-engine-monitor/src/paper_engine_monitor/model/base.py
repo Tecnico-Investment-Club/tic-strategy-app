@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-from paper_engine_portfolio._types import Key, Keys, Record
+from paper_engine_monitor._types import Key, Keys, Record
 
 
 class State(ABC):

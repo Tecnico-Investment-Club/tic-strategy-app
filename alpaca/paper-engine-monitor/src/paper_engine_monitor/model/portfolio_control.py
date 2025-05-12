@@ -5,8 +5,8 @@ from hashlib import sha256
 import logging
 from typing import List, Optional, Tuple
 
-from paper_engine_portfolio._types import Key, Keys, Record
-from paper_engine_portfolio.model.base import State
+from paper_engine_monitor._types import Key, Keys, Record
+from paper_engine_monitor.model.base import State
 
 logger = logging.getLogger(__name__)
 

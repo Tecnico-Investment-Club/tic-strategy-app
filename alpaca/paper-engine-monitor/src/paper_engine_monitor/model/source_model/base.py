@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from paper_engine_portfolio._types import Key, Record
+from paper_engine_monitor._types import Key, Record
 
 
 class SourceState(ABC):

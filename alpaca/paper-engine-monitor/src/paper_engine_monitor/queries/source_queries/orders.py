@@ -1,6 +1,6 @@
 """Orders Latest queries."""
 
-from paper_engine_portfolio.queries.source_queries.base import BaseSourceQueries
+from paper_engine_monitor.queries.source_queries.base import BaseSourceQueries
 
 
 class Queries(BaseSourceQueries):

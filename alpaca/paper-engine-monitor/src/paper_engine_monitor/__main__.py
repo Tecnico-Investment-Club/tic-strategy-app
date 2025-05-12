@@ -20,15 +20,15 @@ from typing import (
     Type,
 )
 
-from paper_engine_portfolio._types import File, Key, Keys
-import paper_engine_portfolio.broker as broker
-import paper_engine_portfolio.model as model
-from paper_engine_portfolio.model.base import State
-from paper_engine_portfolio.model.entity import Entity
-from paper_engine_portfolio.persistance import source, target
-import paper_engine_portfolio.queries as queries
-from paper_engine_portfolio.queries.base import BaseQueries
-import paper_engine_portfolio.queries.source_queries as source_queries
+from paper_engine_monitor._types import File, Key, Keys
+import paper_engine_monitor.broker as broker
+import paper_engine_monitor.model as model
+from paper_engine_monitor.model.base import State
+from paper_engine_monitor.model.entity import Entity
+from paper_engine_monitor.persistance import source, target
+import paper_engine_monitor.queries as queries
+from paper_engine_monitor.queries.base import BaseQueries
+import paper_engine_monitor.queries.source_queries as source_queries
 
 
 logging.basicConfig(
@@ -448,7 +448,7 @@ class Loader:
 def parse_args() -> argparse.Namespace:
     """Parses user input arguments when starting loading process."""
     parser = argparse.ArgumentParser(
-        prog="python ./src/paper_engine_portfolio/__main__.py"
+        prog="python ./src/paper_engine_monitor/__main__.py"
     )
 
     parser.add_argument(

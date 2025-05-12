@@ -1,6 +1,6 @@
 """Portfolio Control queries."""
 
-from paper_engine_portfolio.queries.base import BaseQueries
+from paper_engine_monitor.queries.base import BaseQueries
 
 
 class Queries(BaseQueries):
