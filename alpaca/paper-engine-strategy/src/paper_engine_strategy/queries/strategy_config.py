@@ -6,9 +6,9 @@ from paper_engine_strategy.queries.base import BaseQueries
 class Queries(BaseQueries):
     """Strategy Config queries."""
 
-    LOAD_STATE = "SELECT * FROM paper_engine.strategy_config WHERE (strategy_id) IN (VALUES %s);"
+    LOAD_STATE = "SELECT * FROM strategy_config WHERE (strategy_id) IN (VALUES %s);"
     UPSERT = (
-        "INSERT INTO paper_engine.strategy_config ("
+        "INSERT INTO strategy_config ("
         "    strategy_id, "
         "    strategy_type, "
         "    asset_type, "
@@ -31,4 +31,4 @@ class Queries(BaseQueries):
         "    event_id=EXCLUDED.event_id,"
         "    delivery_id=EXCLUDED.delivery_id;"
     )
-    DELETE = "DELETE FROM paper_engine.strategy_config WHERE strategy_id IN (VALUES %s);"
+    DELETE = "DELETE FROM strategy_config WHERE strategy_id IN (VALUES %s);"

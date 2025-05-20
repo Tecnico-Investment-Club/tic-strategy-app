@@ -44,6 +44,8 @@ class Loader:
     """Loader main class."""
 
     _account_id: str
+    _portfolio_id: int
+    _initial_portfolio_value: Optional[int]
     _source: source.Source
     _target: target.Target
     _broker: broker.Alpaca
@@ -97,6 +99,9 @@ class Loader:
         self._account_id = hashlib.sha256(
             (args.api_key + args.secret_key).encode("utf-8")
         ).hexdigest()
+        self._portfolio_id = args.portfolio_id
+        self._initial_portfolio_value = args.initial_portfolio_value
+
 
     def tear_down(self) -> None:
         """Cleans loader settings.
@@ -159,20 +164,12 @@ class Loader:
         start_time: datetime = datetime.utcnow()
         end_time: datetime
 
-        portfolio_id_response = self._source.fetch_one(
-            source_queries.OrdersQueries.LOAD_PORTFOLIO_ID, (self._account_id,)
-        )
-        if not portfolio_id_response:
-            logger.info("No portfolio in the provided account.")
-            return
-
-        portfolio_id = portfolio_id_response[0]
         portfolio_value = self._broker.get_portfolio_value()
-        position_records = self.get_position_records(portfolio_id, portfolio_value)
-        portfolio_records = self.get_portfolio_records(portfolio_id)
+        position_records = self.get_position_records(self._portfolio_id, portfolio_value)
+        portfolio_records = self.get_portfolio_records(self._portfolio_id)
         control_records: File = [
             (
-                portfolio_id,
+                self._portfolio_id,
                 datetime.utcnow(),
             )
         ]
@@ -263,20 +260,24 @@ class Loader:
         short_wgt = curr_short_value / curr_portfolio_value
 
         prev_portfolio = self.get_prev_portfolio(portfolio_id)
-        if not prev_portfolio:
-            cash = self._broker.get_cash_value()
-            (
-                prev_market_value,
-                prev_long_value,
-                prev_short_value,
-            ) = self._source.fetch_one(
-                source_queries.OrdersQueries.LOAD_INITIAL_PORTFOLIO_VALUES,
-                {"portfolio_id": portfolio_id},
-            )
-            prev_portfolio_value = prev_market_value + cash
+        if not prev_portfolio and not self._initial_portfolio_value:
+            prev_portfolio_value = curr_portfolio_value
+            prev_long_value = curr_long_value
+            prev_short_value = curr_short_value
+
             prev_cum_rtn = Decimal(0)
             prev_long_cum_rtn = Decimal(0)
             prev_short_cum_rtn = Decimal(0)
+
+        elif not prev_portfolio:
+            prev_portfolio_value = Decimal(self._initial_portfolio_value)
+            prev_long_value = Decimal(0)
+            prev_short_value = Decimal(0)
+
+            prev_cum_rtn = Decimal(0)
+            prev_long_cum_rtn = Decimal(0)
+            prev_short_cum_rtn = Decimal(0)
+
         else:
             prev_portfolio_value = prev_portfolio.notional
             prev_long_value = prev_portfolio.long_notional
@@ -523,6 +524,24 @@ def parse_args() -> argparse.Namespace:
         type=int,
         required=False,
         help="Loader maximum time to sleep between iterations.",
+    )
+
+    parser.add_argument(
+        "--portfolio_id",
+        dest="portfolio_id",
+        default=int(os.getenv("PORTFOLIO_ID")),
+        type=int,
+        required=False,
+        help="Portfolio ID of the tracked portfolio.",
+    )
+
+    parser.add_argument(
+        "--initial_portfolio_value",
+        dest="initial_portfolio_value",
+        default=os.getenv("INITIAL_PORTFOLIO_VALUE"),
+        type=str,
+        required=False,
+        help="Initial value of tracked Portfolio.",
     )
 
     parser.add_argument(

@@ -6,9 +6,9 @@ from paper_engine_strategy.queries.base import BaseQueries
 class Queries(BaseQueries):
     """Strategy queries."""
 
-    LOAD_STATE = "SELECT * FROM paper_engine.strategy WHERE (strategy_id, asset_id_type, asset_id, datadate) IN (VALUES %s);"  # noqa: B950
+    LOAD_STATE = "SELECT * FROM strategy WHERE (strategy_id, asset_id_type, asset_id, datadate) IN (VALUES %s);"  # noqa: B950
     UPSERT = (
-        "INSERT INTO paper_engine.strategy ("
+        "INSERT INTO strategy ("
         "    strategy_id, "
         "    asset_id_type, "
         "    asset_id,"
@@ -31,4 +31,4 @@ class Queries(BaseQueries):
         "    event_id=EXCLUDED.event_id,"
         "    delivery_id=EXCLUDED.delivery_id;"
     )
-    DELETE = "DELETE FROM paper_engine.strategy WHERE (strategy_id, asset_id_type, asset_id, datadate) IN (VALUES %s);"  # noqa: B950
+    DELETE = "DELETE FROM strategy WHERE (strategy_id, asset_id_type, asset_id, datadate) IN (VALUES %s);"  # noqa: B950
