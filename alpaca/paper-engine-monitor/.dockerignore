@@ -14,7 +14,6 @@ env/
 ENV/
 tests/
 venv/
-config.env
 config.env.sample
 tox.ini
 .env

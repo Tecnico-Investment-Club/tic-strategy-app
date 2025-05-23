@@ -352,9 +352,9 @@ class Loader:
         # previous state
         keys: Keys = state_type.list_ids_from_source(records=file)
         # fetch records from state with keys
-        if entity in [Entity.PORTFOLIO_LATEST, Entity.POSITION_LATEST]:
+        if entity in [Entity.POSITION_LATEST]:
             prev_state: List[Tuple] = self._target.get_current_state(
-                query=query.LOAD_FULL_STATE
+                query=query.LOAD_FULL_STATE, args=[(self._portfolio_id,)]
             )
         else:
             prev_state: List[Tuple] = self._target.get_current_state(
