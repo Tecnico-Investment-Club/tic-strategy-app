@@ -15,7 +15,7 @@ services:
         max-file: "3"
 
   am-monitor:
-    build: ./paper-engine-am-monitor
+    build: ./paper-engine-monitor
     container_name: am-monitor
     env_file: ./env/am-monitor.env
     extra_hosts:
