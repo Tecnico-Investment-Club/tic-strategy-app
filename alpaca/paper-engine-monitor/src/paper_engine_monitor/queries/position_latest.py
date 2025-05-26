@@ -10,7 +10,7 @@ class Queries(BaseQueries):
         "SELECT * FROM position_latest WHERE (portfolio_id, asset_id) IN (VALUES %s);"
     )
     LOAD_FULL_STATE = (
-        "SELECT * FROM position_latest;"
+        "SELECT * FROM position_latest WHERE (portfolio_id) IN (VALUES %s);"
     )
     UPSERT = (
         "INSERT INTO position_latest ("
