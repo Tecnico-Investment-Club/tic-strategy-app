@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  quant-monitor:
+    build: ./paper-engine-monitor
+    container_name: quant-monitor
+    env_file: ./env/monitor.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  am-monitor:
+    build: ./paper-engine-am-monitor
+    container_name: am-monitor
+    env_file: ./env/am-monitor.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  
+  orders:
+    build: ./paper-engine-orders
+    container_name: orders
+    env_file: ./env/orders.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+  strategy:
+    build: ./paper-engine-strategy
+    container_name: strategy
+    env_file: ./env/strategy.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
