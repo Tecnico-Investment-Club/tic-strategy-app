@@ -101,13 +101,13 @@ class Loader:
         ).hexdigest()
         self._portfolio_id = args.portfolio_id
         self._initial_portfolio_value = args.initial_portfolio_value
+
+        sql_directory = "paper_engine_monitor/db"
         
-        sql_directory = "/db"
-        
-        cwd = os.getcwd()
-        dirs = [d for d in os.listdir(cwd) if os.path.isdir(os.path.join(cwd, d))]
-        print("Directories:", dirs)
-        
+        for root, dirs, _ in os.walk(os.getcwd()):
+            for d in dirs:
+                print(os.path.join(root, d))
+
         for filename in os.listdir(sql_directory):
             if filename == "db.sql":
                 continue
