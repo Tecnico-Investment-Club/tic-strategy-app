@@ -104,6 +104,10 @@ class Loader:
         
         sql_directory = "/db"
         
+        cwd = os.getcwd()
+        dirs = [d for d in os.listdir(cwd) if os.path.isdir(os.path.join(cwd, d))]
+        print("Directories:", dirs)
+        
         for filename in os.listdir(sql_directory):
             if filename == "db.sql":
                 continue
