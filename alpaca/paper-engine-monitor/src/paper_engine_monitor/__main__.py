@@ -102,11 +102,7 @@ class Loader:
         self._portfolio_id = args.portfolio_id
         self._initial_portfolio_value = args.initial_portfolio_value
 
-        sql_directory = "paper_engine_monitor/db"
-        
-        for root, dirs, _ in os.walk(os.getcwd()):
-            for d in dirs:
-                print(os.path.join(root, d))
+        sql_directory = "/db"
 
         for filename in os.listdir(sql_directory):
             if filename == "db.sql":

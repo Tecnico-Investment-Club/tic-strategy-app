@@ -118,8 +118,7 @@ class Loader:
         self._asset_type = args.asset_type
         self._interval = args.interval
         self._lookback = args.lookback
-        
-        
+
         sql_directory = "/db"
         
         for filename in os.listdir(sql_directory):

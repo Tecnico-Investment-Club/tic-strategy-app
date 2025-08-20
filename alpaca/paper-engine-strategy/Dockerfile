@@ -23,7 +23,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
     && apk add --no-cache dumb-init
 
 COPY src/ .
-COPY db/ .
+COPY db /project/db
 COPY pyproject.toml .
 COPY README.md .
 RUN pip3 install .
