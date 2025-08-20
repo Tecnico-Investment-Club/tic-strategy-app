@@ -9,7 +9,6 @@
 .tox/
 .nox/
 cover/
-db/
 env/
 ENV/
 tests/
