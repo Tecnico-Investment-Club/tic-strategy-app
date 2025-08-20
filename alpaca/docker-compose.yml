@@ -1,9 +1,10 @@
 version: '3.8'
 
 services:
-  quant-monitor:
+  po-hurst-monitor:
+    image: monitor
     build: ./paper-engine-monitor
-    container_name: quant-monitor
+    container_name: po-hurst-monitor
     env_file: ./env/monitor.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -15,7 +16,7 @@ services:
         max-file: "3"
 
   am-monitor:
-    build: ./paper-engine-monitor
+    image: monitor
     container_name: am-monitor
     env_file: ./env/am-monitor.env
     extra_hosts:
@@ -27,9 +28,9 @@ services:
         max-size: "10m"
         max-file: "3"
   
-  orders:
+  po-hurst-orders:
     build: ./paper-engine-orders
-    container_name: orders
+    container_name: po-hurst-orders
     env_file: ./env/orders.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -39,10 +40,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    
-  strategy:
+
+  po-hurst-strategy:
     build: ./paper-engine-strategy
-    container_name: strategy
+    container_name: po-hurst-strategy
     env_file: ./env/strategy.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
