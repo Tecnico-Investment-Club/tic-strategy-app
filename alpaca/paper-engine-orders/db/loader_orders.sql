@@ -5,4 +5,4 @@ CREATE TABLE IF NOT EXISTS paper_engine.loader_orders (
 
     PRIMARY KEY(delivery_id)
 );
-CREATE INDEX idx_loader_orders_delivery_ts ON loader_orders(delivery_ts);
+CREATE INDEX IF NOT EXISTS idx_loader_orders_delivery_ts ON loader_orders(delivery_ts);
