@@ -119,7 +119,7 @@ class Loader:
         self._interval = args.interval
         self._lookback = args.lookback
 
-        sql_directory = "/db"
+        sql_directory = "/project/db"
         
         for filename in os.listdir(sql_directory):
             if filename == "db.sql":
