@@ -1,4 +1,4 @@
-CREATE TABLE strategy_config
+CREATE TABLE IF NOT EXISTS strategy_config
 (
     strategy_id                             BIGINT,
     strategy_type                           VARCHAR,

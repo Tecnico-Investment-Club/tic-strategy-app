@@ -11,6 +11,7 @@ import secrets
 from sys import stdout
 import time
 from typing import Any, Dict, List, Set, Tuple, Type, Optional
+import os
 
 import paper_engine_strategy._filters as filters
 from paper_engine_strategy._types import File, Key, Keys
@@ -117,6 +118,17 @@ class Loader:
         self._asset_type = args.asset_type
         self._interval = args.interval
         self._lookback = args.lookback
+        
+        
+        sql_directory = "../../db"
+        
+        for filename in os.listdir(sql_directory):
+            if filename == "db.sql":
+                continue
+            file_path = os.path.join(sql_directory, filename)
+            with open(file_path, "r") as sql_file:
+                sql_script = sql_file.read()
+                self._source.init_tables(sql_script)
 
     def tear_down(self) -> None:
         """Cleans loader settings.

@@ -1,4 +1,4 @@
-CREATE TABLE orders
+CREATE TABLE IF NOT EXISTS orders
 (
     portfolio_id                            BIGINT,
     side                                    VARCHAR(20),

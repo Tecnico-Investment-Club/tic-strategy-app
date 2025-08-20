@@ -1,4 +1,4 @@
-CREATE TABLE strategy_control
+CREATE TABLE IF NOT EXISTS strategy_control
 (
     strategy_id                             BIGINT,
     last_decision_ts                        TIMESTAMP,

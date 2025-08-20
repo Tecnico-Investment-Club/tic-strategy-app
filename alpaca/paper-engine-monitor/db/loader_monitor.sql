@@ -1,4 +1,4 @@
-CREATE TABLE loader_monitor (
+CREATE TABLE IF NOT EXISTS loader_monitor (
     delivery_id                             BIGINT,
     delivery_ts                             TIMESTAMP NOT NULL,
     runtime                                 INTERVAL,

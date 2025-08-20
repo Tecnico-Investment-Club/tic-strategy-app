@@ -1,4 +1,4 @@
-CREATE TABLE portfolio_control
+CREATE TABLE IF NOT EXISTS portfolio_control
 (
     portfolio_id                            BIGINT,
     last_monitor_ts                         TIMESTAMP,

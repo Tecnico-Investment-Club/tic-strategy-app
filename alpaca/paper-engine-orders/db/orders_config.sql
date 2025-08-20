@@ -1,4 +1,4 @@
-CREATE TABLE orders_config
+CREATE TABLE IF NOT EXISTS orders_config
 (
     portfolio_id                            BIGINT,
     strategy_id                             BIGINT,

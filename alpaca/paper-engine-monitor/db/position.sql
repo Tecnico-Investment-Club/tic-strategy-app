@@ -1,4 +1,4 @@
-CREATE TABLE position
+CREATE TABLE IF NOT EXISTS position
 (
     portfolio_id                            BIGINT,
     side                                    VARCHAR(20),

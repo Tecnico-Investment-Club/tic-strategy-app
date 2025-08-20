@@ -1,1 +1,1 @@
-CREATE SEQUENCE strategy_id_seq;
+CREATE SEQUENCE IF NOT EXISTS strategy_id_seq;

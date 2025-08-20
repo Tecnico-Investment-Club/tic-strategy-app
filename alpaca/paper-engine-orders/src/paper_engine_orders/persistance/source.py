@@ -115,3 +115,14 @@ class Source(object):
         res = execute_values(cur=cursor, sql=instruction, argslist=key_list, fetch=True)
 
         return res
+    
+    def init_tables(self, query: str) -> None:
+        """Initializes tables in the database.
+
+        Args:
+            query: SQL query to create tables.
+        """
+        cursor = self.cursor
+        cursor.execute(query)
+        self._connection.commit()
+        logger.info("Tables initialized successfully.")

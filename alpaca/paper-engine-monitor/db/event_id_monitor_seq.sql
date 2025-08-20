@@ -1,1 +1,1 @@
-CREATE SEQUENCE event_id_monitor_seq;
+CREATE SEQUENCE IF NOT EXISTS event_id_monitor_seq;

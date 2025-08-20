@@ -1,4 +1,4 @@
-CREATE TABLE strategy_latest
+CREATE TABLE IF NOT EXISTS strategy_latest
 (
     strategy_id                             BIGINT,
     asset_id_type                           VARCHAR(20),

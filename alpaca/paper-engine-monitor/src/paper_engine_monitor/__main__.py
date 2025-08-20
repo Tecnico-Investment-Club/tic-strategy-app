@@ -101,6 +101,16 @@ class Loader:
         ).hexdigest()
         self._portfolio_id = args.portfolio_id
         self._initial_portfolio_value = args.initial_portfolio_value
+        
+        sql_directory = "../../db"
+        
+        for filename in os.listdir(sql_directory):
+            if filename == "db.sql":
+                continue
+            file_path = os.path.join(sql_directory, filename)
+            with open(file_path, "r") as sql_file:
+                sql_script = sql_file.read()
+                self._source.init_tables(sql_script)
 
 
     def tear_down(self) -> None:

@@ -1,1 +1,1 @@
-CREATE SEQUENCE portfolio_id_seq;
+CREATE SEQUENCE IF NOT EXISTS portfolio_id_seq;

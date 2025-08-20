@@ -1,4 +1,4 @@
-CREATE TABLE loader_strategy (
+CREATE TABLE IF NOT EXISTS loader_strategy (
     delivery_id                             BIGINT,
     delivery_ts                             TIMESTAMP NOT NULL,
     runtime                                 INTERVAL,

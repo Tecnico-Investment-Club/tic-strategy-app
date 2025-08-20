@@ -1,4 +1,4 @@
-CREATE TABLE portfolio_latest
+CREATE TABLE IF NOT EXISTS portfolio_latest
 (
     portfolio_id                            BIGINT,
     portfolio_ts                            TIMESTAMP,
