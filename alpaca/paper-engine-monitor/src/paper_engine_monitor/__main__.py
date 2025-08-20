@@ -102,7 +102,7 @@ class Loader:
         self._portfolio_id = args.portfolio_id
         self._initial_portfolio_value = args.initial_portfolio_value
         
-        sql_directory = "../../db"
+        sql_directory = "/db"
         
         for filename in os.listdir(sql_directory):
             if filename == "db.sql":

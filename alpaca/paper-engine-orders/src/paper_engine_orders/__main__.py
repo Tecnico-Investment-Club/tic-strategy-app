@@ -118,7 +118,7 @@ class Loader:
         self._crypto = True
         self._broker.crypto = self._crypto
         
-        sql_directory = "../../db"
+        sql_directory = "/db"
         
         for filename in os.listdir(sql_directory):
             if filename == "db.sql":
