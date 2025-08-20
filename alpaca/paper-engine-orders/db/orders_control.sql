@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS orders_control
+CREATE TABLE IF NOT EXISTS paper_engine.orders_control
 (
     portfolio_id                            BIGINT,
     last_read_delivery_id                   BIGINT,

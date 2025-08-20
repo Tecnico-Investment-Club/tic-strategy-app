@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS strategy
+CREATE TABLE IF NOT EXISTS paper_engine.strategy
 (
     strategy_id                             BIGINT,
     asset_id_type                           VARCHAR(20),

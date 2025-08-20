@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS position
+CREATE TABLE IF NOT EXISTS paper_engine.position
 (
     portfolio_id                            BIGINT,
     side                                    VARCHAR(20),

@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS orders_latest
+CREATE TABLE IF NOT EXISTS paper_engine.orders_latest
 (
     portfolio_id                            BIGINT,
     side                                    VARCHAR(20),

@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS portfolio
+CREATE TABLE IF NOT EXISTS paper_engine.portfolio
 (
     portfolio_id                            BIGINT,
     portfolio_ts                            TIMESTAMP,
