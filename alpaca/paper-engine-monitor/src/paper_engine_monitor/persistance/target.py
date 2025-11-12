@@ -131,9 +131,7 @@ class Target(object):
         if args:
             records = execute_values(cur=cursor, sql=query, argslist=args, fetch=True)
         else:
-            cursor = self.cursor
-            cursor.execute(query=query, vars=args)
-            records = cursor.fetchall()
+            records = []
 
         return records
 
