@@ -53,3 +53,42 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  po-sma-monitor:
+    image: monitor
+    container_name: po-sma-monitor
+    env_file: ./env/sma-monitor.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  
+  po-sma-orders:
+    build: ./paper-engine-orders
+    container_name: po-sma-orders
+    env_file: ./env/sma-orders.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  
+  po-sma-strategy:
+    build: ./paper-engine-strategy
+    container_name: po-sma-strategy
+    env_file: ./env/sma-strategy.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

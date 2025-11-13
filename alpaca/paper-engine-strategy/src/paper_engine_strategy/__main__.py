@@ -82,6 +82,7 @@ class Loader:
     }
     _strategies: Dict[str, BaseStrategy] = {
         "PO_HURST_EXPONENT": strat.POHurstExpStrategy,
+        "PO_SMA": strat.SMAStrategy,
     }
     _schemas: Dict[str, str] = {
         "STOCK": "alpaca",
@@ -182,7 +183,7 @@ class Loader:
                 )
                 time.sleep(t)
             except Exception as e:
-                logger.warning("error while importing:", e)
+                logger.warning("error while importing: %s", e)
                 continue_watching_folder = False
 
         logger.info("Terminating...")
@@ -300,8 +301,7 @@ class Loader:
         return res
 
     def run_strategy(self, data) -> File:
-        prev_wgts = self._broker.get_current_weights()
-
+        prev_wgts = self._broker.get_current_weights() if self._requires_prev_weights else None
         strategy = self._strategy.setup(self._strategy_config)
         raw_strategy_records = strategy.get_weights(data, prev_wgts)
         strategy_records = [
