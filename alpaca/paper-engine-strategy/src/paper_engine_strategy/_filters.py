@@ -524,7 +524,7 @@ CRYPTO = [
  # 'XTZUSD',
  # 'BCHUSD',
  # 'BATUSD',
- 'MKRUSD',
+ #'MKRUSD',
  'SOLUSD',
  # 'SHIBUSD'
 ]
