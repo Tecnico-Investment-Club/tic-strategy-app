@@ -36,10 +36,12 @@ class Alpaca(Broker):
 
         self.stock_data_client = StockHistoricalDataClient(api_key, secret_key)
         self.crypto_data_client = CryptoHistoricalDataClient(api_key, secret_key)
+        logger.info("Alpaca TradingClient initialized (Paper=True).")
 
     def get_account_capital(self) -> Decimal:
         """Get account capital (equity + cash)."""
         account_capital = Decimal(self.trading_client.get_account().equity)
+        logger.debug(f"Account Capital: {account_capital}")
         return account_capital
 
     def get_all_assets(self) -> List[Asset]:
@@ -121,7 +123,9 @@ class Alpaca(Broker):
         """Submit provided orders to the broker."""
         for order in orders:
             try:
+                logger.info(f"Submitting {order['side']} order for {order['symbol']} qty={order['quantity']}")
                 self.submit_order("MARKET", order)
+                logger.info(f"Order submitted successfully: {order['symbol']}")
             except Exception as e:
                 logger.warning(f"Order: {order} did not go through. {e}")
                 continue

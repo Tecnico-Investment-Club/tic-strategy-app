@@ -117,6 +117,11 @@ class Loader:
 
         self._crypto = True
         self._broker.crypto = self._crypto
+        
+        logger.info(
+            f"Setup complete. Portfolio: {self._portfolio_name}, Strategy ID: {self._strategy_id}, "
+            f"Cash Alloc: {self._cash_allocation}, Dry Run: {self._dry_run}, Dry Orders: {self._dry_orders}"
+        )
 
         sql_directory = "/project/db"
 
@@ -198,6 +203,8 @@ class Loader:
         strategy_id = decision_metadata[1]
         latest_decision_delivery_id = decision_metadata[2]
         latest_decision_datadate = decision_metadata[3]
+        
+        logger.info(f"Processing new decision. Strategy: {strategy_id}, Delivery: {latest_decision_delivery_id}")
 
         strategy_records = self.get_latest_decision(strategy_id)
 
@@ -214,6 +221,17 @@ class Loader:
 
         asset_ids = [s.asset_id for s in strategy_records]
         tradable_asset_ids = self._broker.check_tradable(asset_ids)
+        
+        # Check if any asset_ids from the strategy are not tradable
+        if len(asset_ids) != len(tradable_asset_ids):
+            skipped_assets = set(asset_ids) - set(tradable_asset_ids)
+            logger.info(
+                f"Tradable Check: Total assets in strategy = {len(asset_ids)}. "
+                f"Tradable assets = {len(tradable_asset_ids)}. "
+                f"Skipped (non-tradable) assets: {skipped_assets if skipped_assets else 'None'}"
+            )
+            if skipped_assets:
+                logger.debug(f"Detailed list of non-tradable assets skipped: {sorted(list(skipped_assets))}")
         strategy_records = [
             s for s in strategy_records if s.asset_id in tradable_asset_ids
         ]
@@ -226,9 +244,12 @@ class Loader:
             current_symbols = list(current_positions.keys())
             strategy_symbols = [s.asset_id for s in strategy_records]
             closed_symbols = [s for s in current_symbols if s not in strategy_symbols]
+            
         closed_records = []
-        if closed_symbols and not self._dry_orders:
-            closed_records = self._broker.close_positions(portfolio_id, closed_symbols)
+        if closed_symbols:
+            logger.info(f"Closing {len(closed_symbols)} positions: {closed_symbols}")
+            if not self._dry_orders:
+                closed_records = self._broker.close_positions(portfolio_id, closed_symbols)
 
         open_positions = [s for s in strategy_records if s.asset_id not in closed_symbols]
 
@@ -254,6 +275,7 @@ class Loader:
                 unique_short_portfolio.append(p)
 
         account_capital = self._broker.get_account_capital()
+        logger.info(f"Account Capital: {account_capital}")
 
         ############################################
         ### FOR NOW LONG ONLY IS HARD CODED HERE ###
@@ -277,6 +299,16 @@ class Loader:
 
         closing_orders = long_orders["sell"] + short_orders["buy"]
         opening_orders = long_orders["buy"] + short_orders["sell"]
+        
+        total_orders = len(closing_orders) + len(opening_orders)
+        if total_orders > 0:
+            logger.info(f"Orders generated: {total_orders} (Closing: {len(closing_orders)}, Opening: {len(opening_orders)})")
+            for o in closing_orders:
+                logger.info(f"  [CLOSE] {o['side'].upper()} {o['symbol']} Qty: {o['quantity']}")
+            for o in opening_orders:
+                logger.info(f"  [OPEN]  {o['side'].upper()} {o['symbol']} Qty: {o['quantity']}")
+        else:
+             logger.info("No new orders generated.")
 
         if not self._dry_orders:
             self._broker.submit_orders(closing_orders)
@@ -322,6 +354,7 @@ class Loader:
 
         # persist delivery
         if not self._dry_run:
+            logger.info(f"Persisting delivery {delivery_id} with {len(orders_records)} orders.")
             self.persist_delivery(
                 delivery_id=delivery_id,
                 start_time=start_time,
@@ -471,6 +504,11 @@ class Loader:
         self._target.begin_transaction()
 
         for entity, content in delivery.items():
+            records_count = len(content["records"])
+            remove_count = len(content["keys_to_remove"])
+            if records_count > 0 or remove_count > 0:
+                 logger.info(f"  -> {entity}: Upserting {records_count}, Deleting {remove_count}")
+
             self.persist_postgres(
                 entity=entity,
                 records=content["records"],

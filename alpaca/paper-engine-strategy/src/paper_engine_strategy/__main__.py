@@ -120,6 +120,12 @@ class Loader:
         self._interval = args.interval
         self._lookback = args.lookback
 
+        logger.info(
+            f"Setup complete. Strategy Type: {self._strategy_type}, "
+            f"Asset Type: {self._asset_type}, Interval: {self._interval}, "
+            f"Lookback: {self._lookback}"
+        )
+
         sql_directory = "/project/db"
         
         for filename in os.listdir(sql_directory):
@@ -268,9 +274,12 @@ class Loader:
                 args=[(self._strategy_id,)],
             )
         if not latest_control:
+            logger.info(f"No previous control state found. Processing data from {latest_datadate}.")
             return latest_datadate
 
         latest_control_ts = latest_control[0][1]
+        logger.info(f"Latest control timestamp: {latest_control_ts}, Latest data timestamp: {latest_datadate}")
+        
         if latest_control_ts < latest_datadate:
             return latest_datadate
         else:
@@ -286,6 +295,7 @@ class Loader:
 
         raw_records = self._source.get_file(query, variable=(start_date,))
         records = [SpotPrices.from_source(r) for r in raw_records]
+        logger.info(f"Fetched {len(records)} records from source.")
         return records
 
     def filter_data(self, strategy_data: List[SpotPrices]):
@@ -297,10 +307,17 @@ class Loader:
                 s.symbol = helpers.binance_2_alpaca_symbol(s.symbol)
             res = [s for s in strategy_data if s.symbol in filters.CRYPTO]
         else:
+            logger.warning(f"Unknown asset type: {self._asset_type}")
             return None
+        
+        logger.info(f"Filtered data. {len(strategy_data)} -> {len(res)} records.")
+        if res:
+            unique_symbols = sorted(list(set(s.symbol for s in res)))
+            logger.info(f"Active symbols after filter: {unique_symbols}")
         return res
 
     def run_strategy(self, data) -> File:
+        """Executes the strategy and generates weight allocations."""
         prev_wgts = self._broker.get_current_weights() if self._requires_prev_weights else None
         strategy = self._strategy.setup(self._strategy_config)
         raw_strategy_records = strategy.get_weights(data, prev_wgts)
@@ -316,7 +333,43 @@ class Loader:
             ]
             for s in raw_strategy_records
         ]
+        
+        self._log_strategy_decisions(prev_wgts, strategy_records)
+        
         return strategy_records
+
+    def _log_strategy_decisions(self, prev_wgts: Optional[List[List]], strategy_records: File) -> None:
+        """Logs the decisions made by the strategy compared to previous state."""
+        logger.info(f"Strategy generated {len(strategy_records)} target positions.")
+
+        prev_weights_dict = {}
+        if prev_wgts:
+             for pw in prev_wgts:
+                 prev_weights_dict[pw[0]] = float(pw[2])
+
+        new_weights_dict = {rec[2]: float(rec[5]) for rec in strategy_records}
+        
+        all_symbols = set(prev_weights_dict.keys()) | set(new_weights_dict.keys())
+        
+        if not all_symbols:
+            logger.info("No active symbols in strategy.")
+            return
+
+        logger.info("--- Portfolio Changes ---")
+        changes_found = False
+        for symbol in sorted(all_symbols):
+            old_w = prev_weights_dict.get(symbol, 0.0)
+            new_w = new_weights_dict.get(symbol, 0.0)
+            
+            if abs(old_w - new_w) < 1e-6:
+                continue
+                
+            changes_found = True
+            logger.info(f"{symbol:<10}: {old_w:.4f} -> {new_w:.4f}")
+        
+        if not changes_found:
+            logger.info("No significant weight changes required.")
+        logger.info("-------------------------")
 
     def get_strat_hash(self) -> str:
         """Get portfolio_optimization hash from portfolio_optimization params."""
@@ -409,9 +462,15 @@ class Loader:
             start_time: Time delivery started.
             delivery: Delivery to process.
         """
+        logger.info(f"Delivery {delivery_id}: persisting {len(delivery)} entity types to postgres.")
         self._target.begin_transaction()
 
         for entity, content in delivery.items():
+            records_count = len(content["records"])
+            remove_count = len(content["keys_to_remove"])
+            if records_count > 0 or remove_count > 0:
+                logger.info(f"  -> {entity}: Upserting {records_count}, Deleting {remove_count}")
+                
             self.persist_postgres(
                 entity=entity,
                 records=content["records"],

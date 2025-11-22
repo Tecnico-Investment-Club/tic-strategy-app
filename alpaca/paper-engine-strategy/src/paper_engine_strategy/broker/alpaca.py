@@ -26,20 +26,25 @@ class Alpaca(Broker):
         self.trading_stream = TradingStream(api_key, secret_key, paper=True)
 
         self.data_client = StockHistoricalDataClient(api_key, secret_key)
+        logger.info("Alpaca TradingClient initialized (Paper=True).")
 
     def get_portfolio_value(self, side: str = "ALL") -> Decimal:
         """Get portfolio value."""
         account: TradeAccount = self.trading_client.get_account()
         if side == "LONG":
-            return Decimal(account.long_market_value)
+            val = Decimal(account.long_market_value)
         elif side == "SHORT":
-            return -Decimal(account.short_market_value)
+            val = -Decimal(account.short_market_value)
         else:
-            return Decimal(account.equity)
+            val = Decimal(account.equity)
+        
+        logger.debug(f"Portfolio value ({side}): {val}")
+        return val
 
     def get_all_positions(self) -> Optional[Dict]:
         """Get ticker: quantity dict."""
         self.positions = self.trading_client.get_all_positions()
+        logger.debug(f"Fetched {len(self.positions)} positions from Alpaca.")
         res = {
             p.symbol: {
                 "quantity": p.qty,
@@ -52,11 +57,15 @@ class Alpaca(Broker):
 
     def get_current_weights(self) -> Optional[List[List]]:
         positions = self.get_all_positions()
+        
+        if not positions:
+            logger.info("No positions found to calculate weights.")
+            return None
+
         long_value = self.get_portfolio_value("LONG")
         short_value = self.get_portfolio_value("SHORT")
-
-        if not positions:
-            return None
+        
+        logger.info(f"Calculating weights for {len(positions)} positions. Long Val: {long_value}, Short Val: {short_value}")
 
         weights = []
         for symbol, position in positions.items():
