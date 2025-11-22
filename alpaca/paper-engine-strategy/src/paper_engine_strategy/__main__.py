@@ -82,7 +82,6 @@ class Loader:
     }
     _strategies: Dict[str, BaseStrategy] = {
         "PO_HURST_EXPONENT": strat.POHurstExpStrategy,
-        "PO_SMA": strat.SMAStrategy,
     }
     _schemas: Dict[str, str] = {
         "STOCK": "alpaca",
@@ -318,7 +317,7 @@ class Loader:
 
     def run_strategy(self, data) -> File:
         """Executes the strategy and generates weight allocations."""
-        prev_wgts = self._broker.get_current_weights() if self._requires_prev_weights else None
+        prev_wgts = self._broker.get_current_weights()
         strategy = self._strategy.setup(self._strategy_config)
         raw_strategy_records = strategy.get_weights(data, prev_wgts)
         strategy_records = [
