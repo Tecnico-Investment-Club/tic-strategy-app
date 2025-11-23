@@ -194,6 +194,8 @@ class Loader:
         start_time: datetime = datetime.utcnow()
         end_time: datetime
 
+        logger.info("=" * 80)
+        logger.info("[CYCLE] Starting new order check cycle")
         decision_metadata = self.check_new_decisions()
         if not decision_metadata:
             logger.debug("No new decision for any strategy.")
@@ -207,6 +209,8 @@ class Loader:
         logger.warning(f"Processing new decision. Strategy: {strategy_id}, Delivery: {latest_decision_delivery_id}")
 
         strategy_records = self.get_latest_decision(strategy_id)
+        logger.info(f"[STRATEGY] Fetched {len(strategy_records)} strategy records from database")
+        logger.info(f"[STRATEGY] Asset type: {strategy_records[0].asset_id_type if strategy_records else 'N/A'}")
 
         # ASSET ID TYPE STARTS WITH STOCK
         if strategy_records[0].asset_id_type[:5] == "STOCK":
@@ -226,17 +230,20 @@ class Loader:
         if len(asset_ids) != len(tradable_asset_ids):
             skipped_assets = set(asset_ids) - set(tradable_asset_ids)
             logger.warning(
-                f"Tradable Check: Total assets in strategy = {len(asset_ids)}. "
-                f"Tradable assets = {len(tradable_asset_ids)}. "
-                f"Skipped (non-tradable) assets: {skipped_assets if skipped_assets else 'None'}"
+                f"[TRADABILITY] Removed {len(skipped_assets)} non-tradable assets from {len(asset_ids)} total: {sorted(list(skipped_assets))}"
             )
-            if skipped_assets:
-                logger.debug(f"Detailed list of non-tradable assets skipped: {sorted(list(skipped_assets))}")
+        else:
+            logger.info(f"[TRADABILITY] All {len(asset_ids)} assets are tradable")
+        
         strategy_records = [
             s for s in strategy_records if s.asset_id in tradable_asset_ids
         ]
 
         current_positions = self._broker.get_positions()
+        if current_positions:
+            logger.info(f"[POSITIONS] Current positions: {len(current_positions)} assets = {list(current_positions.keys())}")
+        else:
+            logger.info("[POSITIONS] No current positions")
 
         # CLOSE POSITIONS
         closed_symbols = []
@@ -247,14 +254,18 @@ class Loader:
             
         closed_records = []
         if closed_symbols:
-            logger.warning(f"Closing {len(closed_symbols)} positions: {closed_symbols}")
+            logger.warning(f"[CLOSE] Closing {len(closed_symbols)} positions: {closed_symbols}")
             if not self._dry_orders:
                 closed_records = self._broker.close_positions(portfolio_id, closed_symbols)
+        else:
+            logger.info("[CLOSE] No positions to close")
 
         open_positions = [s for s in strategy_records if s.asset_id not in closed_symbols]
+        logger.info(f"[PORTFOLIO] Open positions to manage: {len(open_positions)} assets")
 
         long_portfolio = [p for p in open_positions if p.decision == 1]
         long_asset_ids = [p.asset_id for p in long_portfolio]
+        logger.info(f"[PORTFOLIO] Long portfolio: {len(long_portfolio)} positions = {long_asset_ids}")
 
         short_portfolio = [
             p
@@ -274,8 +285,15 @@ class Loader:
                 seen_asset_ids.append(p.asset_id)
                 unique_short_portfolio.append(p)
 
+        if unique_short_portfolio:
+            logger.info(f"[PORTFOLIO] Short portfolio: {len(unique_short_portfolio)} positions")
+            if len(short_asset_ids) != len(shortable_ids):
+                non_shortable = set(short_asset_ids) - set(shortable_ids)
+                logger.warning(f"[PORTFOLIO] Removed {len(non_shortable)} non-shortable assets: {non_shortable}")
+        else:
+            logger.info("[PORTFOLIO] Short portfolio: 0 positions (long-only strategy)")
+
         account_capital = self._broker.get_account_capital()
-        logger.warning(f"Account Capital: {account_capital}")
 
         ############################################
         ### FOR NOW LONG ONLY IS HARD CODED HERE ###
@@ -287,12 +305,25 @@ class Loader:
         short_capital = Decimal("0")
         ############################################
 
+        cash_cushion_info = f" ({self._cash_allocation*100:.1f}% cash cushion)" if self._crypto else ""
+        logger.warning(f"[CAPITAL] Account: ${account_capital} | Long: ${long_capital} | Short: ${short_capital}{cash_cushion_info}")
+
         long_weighting = Weighting.setup(
             self._broker, long_capital, long_portfolio, current_positions
         ) if long_portfolio and long_capital > 0 else None
         short_weighting = Weighting.setup(
             self._broker, short_capital, unique_short_portfolio, current_positions
         ) if unique_short_portfolio and short_capital > 0 else None
+
+        if long_weighting:
+            logger.info("[WEIGHTING] Long weighting calculated successfully")
+        else:
+            logger.info("[WEIGHTING] No long weighting (empty portfolio or no capital)")
+
+        if short_weighting:
+            logger.info("[WEIGHTING] Short weighting calculated successfully")
+        else:
+            logger.info("[WEIGHTING] No short weighting (empty portfolio or no capital)")
 
         long_orders = long_weighting.get_orders_params() if long_weighting else {"buy": [], "sell": []}
         short_orders = short_weighting.get_orders_params() if short_weighting else {"buy": [], "sell": []}
@@ -302,17 +333,25 @@ class Loader:
         
         total_orders = len(closing_orders) + len(opening_orders)
         if total_orders > 0:
-            logger.warning(f"Orders generated: {total_orders} (Closing: {len(closing_orders)}, Opening: {len(opening_orders)})")
+            logger.warning(f"[ORDERS] Generated {total_orders} orders: {len(closing_orders)} closing, {len(opening_orders)} opening")
             for o in closing_orders:
-                logger.warning(f"  [CLOSE] {o['side'].upper()} {o['symbol']} Qty: {o['quantity']}")
+                logger.warning(f"  [ORDER] {o['side'].upper():4s} {o['symbol']:10s} qty={o['quantity']}")
             for o in opening_orders:
-                logger.warning(f"  [OPEN]  {o['side'].upper()} {o['symbol']} Qty: {o['quantity']}")
+                logger.warning(f"  [ORDER] {o['side'].upper():4s} {o['symbol']:10s} qty={o['quantity']}")
         else:
-             logger.warning("No new orders generated.")
+             logger.warning("[ORDERS] No rebalancing needed - portfolio matches strategy weights")
 
         if not self._dry_orders:
-            self._broker.submit_orders(closing_orders)
-            self._broker.submit_orders(opening_orders)
+            if closing_orders or opening_orders:
+                logger.warning(f"[SUBMIT] Submitting {len(closing_orders)} closing + {len(opening_orders)} opening orders to broker...")
+                self._broker.submit_orders(closing_orders)
+                self._broker.submit_orders(opening_orders)
+                logger.warning(f"[SUBMIT] ✓ All {total_orders} orders submitted successfully")
+        else:
+            if total_orders > 0:
+                logger.warning(f"[SUBMIT] DRY ORDERS MODE - {total_orders} orders simulated (not submitted to broker)")
+            else:
+                logger.info("[SUBMIT] DRY ORDERS MODE - No orders to simulate")
 
         long_records = long_weighting.get_orders_records(portfolio_id) if long_weighting else []
         short_records = short_weighting.get_orders_records(portfolio_id) if short_weighting else []
@@ -340,7 +379,7 @@ class Loader:
             ),
         }
         if orders_records:
-            logger.warning('New orders placed.')
+            logger.info(f"[RECORDS] Creating order records for {len(orders_records)} executed orders")
             delivery[Entity.ORDERS] = self.process(
                 delivery_id=delivery_id,
                 entity=Entity.ORDERS,
@@ -353,20 +392,21 @@ class Loader:
             )
 
         # persist delivery
+        end_time = datetime.utcnow()
+        runtime = end_time - start_time
+        
         if not self._dry_run:
-            logger.warning(f"Persisting delivery {delivery_id} with {len(orders_records)} orders.")
+            logger.info(f"[PERSIST] Saving delivery {delivery_id} to database...")
             self.persist_delivery(
                 delivery_id=delivery_id,
                 start_time=start_time,
                 delivery=delivery,
             )
+            logger.warning(f"[COMPLETE] Delivery {delivery_id} processed: {total_orders} orders, {len(orders_records)} records saved ({runtime.total_seconds():.2f}s)")
+        else:
+            logger.warning(f"[COMPLETE] DRY RUN - Delivery {delivery_id}: {total_orders} orders simulated, NOT saved to database ({runtime.total_seconds():.2f}s)")
 
         del delivery
-
-        end_time = datetime.utcnow()
-        logger.warning(
-            f"Delivery {delivery_id}: processed ({end_time - start_time} seconds)."
-        )
 
     @staticmethod
     def check_market_open(open_time: dt_time, close_time: dt_time, t: dt_time) -> bool:
@@ -385,13 +425,16 @@ class Loader:
 
     def check_new_decisions(self) -> Optional[Record]:
         """Check latest strategy state."""
+        logger.info(f"[CHECK] Checking for new decisions for strategy_id={self._strategy_id}")
         strat_metadata = self._source.fetch_one(
             query=StrategyQueries.LOAD_LATEST_DELIVERY_METADATA,
             variable=(self._strategy_id,)
         )
         if not strat_metadata:
+            logger.info("[CHECK] No strategy metadata found in database")
             return None
 
+        logger.info(f"[CHECK] Found strategy delivery_id={strat_metadata[1]}, datadate={strat_metadata[2]}")
         strategy_id = strat_metadata[0]
         latest_decision_delivery_id = strat_metadata[1]
         latest_decision_datadate = strat_metadata[2]
@@ -410,13 +453,16 @@ class Loader:
             latest_decision_datadate,
         )
         if not last_decision_metadata:
+            logger.warning(f"[CHECK] No previous orders_control record found. This is the first run for portfolio {portfolio_id}.")
             return r
 
         last_decision_delivery_id = last_decision_metadata[0][1]
+        logger.info(f"[CHECK] Last processed delivery_id={last_decision_delivery_id}, Latest available delivery_id={latest_decision_delivery_id}")
 
         if last_decision_delivery_id < latest_decision_delivery_id:
             return r
 
+        logger.info(f"[CHECK] No new decision. Already processed delivery_id {latest_decision_delivery_id}")
         return None
 
     def get_latest_decision(self, strategy_id: int) -> List[source_model.Strategy]:
@@ -453,7 +499,7 @@ class Loader:
         Returns:
             A dictionary with records and keys to remove.
         """
-        logger.warning(f"Delivery {delivery_id}: processing {entity}...")
+        logger.debug(f"Processing {entity} for delivery {delivery_id}")
 
         query: BaseQueries = self._queries[entity]
         state_type: Type[State] = self._state[entity]
@@ -507,7 +553,7 @@ class Loader:
             records_count = len(content["records"])
             remove_count = len(content["keys_to_remove"])
             if records_count > 0 or remove_count > 0:
-                 logger.warning(f"  -> {entity}: Upserting {records_count}, Deleting {remove_count}")
+                 logger.info(f"  → {entity}: +{records_count} upsert, -{remove_count} delete")
 
             self.persist_postgres(
                 entity=entity,
@@ -525,7 +571,7 @@ class Loader:
         )
 
         self._target.commit_transaction()
-        logger.warning(f"Delivery {delivery_id}: persisted to postgres.")
+        logger.debug(f"Delivery {delivery_id} committed to database")
 
     def persist_postgres(self, entity: Entity, records: List[State], keys_to_remove: Keys) -> None:
         """Persists records of entity to postgres.

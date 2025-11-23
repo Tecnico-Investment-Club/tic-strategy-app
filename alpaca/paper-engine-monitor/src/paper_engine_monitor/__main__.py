@@ -149,7 +149,7 @@ class Loader:
         Polls the source every X seconds for new records.
         Once new records are found, operations are applied to the "target" components.
         """
-        logger.info(
+        logger.warning(
             f"Running as a service. "
             f"source_polling_interval=[{self._min_sleep},{self._max_sleep}]."
         )
@@ -164,17 +164,22 @@ class Loader:
                 )
                 time.sleep(t)
             except Exception as e:
-                logger.warning("error while importing: %s", e)
+                logger.error(f"[ERROR] Monitor service failed: {e}", exc_info=True)
                 continue_watching_folder = False
 
-        logger.info("Terminating...")
+        logger.warning("Terminating...")
 
     def run_once(self) -> None:
         """Runs the synchronization process once."""
         start_time: datetime = datetime.utcnow()
         end_time: datetime
 
+        logger.info("=" * 80)
+        logger.info("[CYCLE] Starting portfolio monitoring cycle")
+        
         portfolio_value = self._broker.get_portfolio_value()
+        logger.info(f"[PORTFOLIO] Current value: ${portfolio_value:,.2f}")
+        
         position_records = self.get_position_records(self._portfolio_id, portfolio_value)
         portfolio_records = self.get_portfolio_records(self._portfolio_id)
         control_records: File = [
@@ -213,23 +218,32 @@ class Loader:
         }
 
         # persist delivery
+        end_time = datetime.utcnow()
+        runtime = end_time - start_time
+        
         if not self._dry_run:
             self.persist_delivery(
                 delivery_id=delivery_id,
                 start_time=start_time,
                 delivery=delivery,
             )
+            logger.warning(f"[COMPLETE] Delivery {delivery_id} saved: {len(position_records)} positions monitored ({runtime.total_seconds():.2f}s)")
+        else:
+            logger.warning(f"[COMPLETE] DRY RUN - Delivery {delivery_id}: {len(position_records)} positions tracked, NOT saved ({runtime.total_seconds():.2f}s)")
 
         del delivery
-
-        end_time = datetime.utcnow()
-        logger.info(
-            f"Delivery {delivery_id}: processed ({end_time - start_time} seconds)."
-        )
 
     def get_position_records(self, portfolio_id: int, portfolio_value: Decimal) -> File:
         """Get position records from broker."""
         positions = self._broker.get_all_positions()
+        
+        if positions:
+            long_positions = [a for a, p in positions.items() if p["side"] == "long"]
+            short_positions = [a for a, p in positions.items() if p["side"] == "short"]
+            logger.info(f"[POSITIONS] Tracking {len(positions)} positions: {len(long_positions)} long, {len(short_positions)} short")
+        else:
+            logger.info("[POSITIONS] No open positions")
+        
         res: File = []
         ts = datetime.utcnow()
         for asset_id, pos in positions.items():
@@ -305,6 +319,16 @@ class Loader:
         long_cum_rtn = self.compute_cum_return(prev_long_cum_rtn, long_rtn)
         short_cum_rtn = self.compute_cum_return(prev_short_cum_rtn, short_rtn)
 
+        # Log performance metrics
+        if prev_portfolio:
+            logger.warning(
+                f"[PERFORMANCE] Return: {rtn*100:+.2f}% | "
+                f"Long: {long_rtn*100:+.2f}% | Short: {short_rtn*100:+.2f}% | "
+                f"Cumulative: {cum_rtn*100:+.2f}%"
+            )
+        else:
+            logger.info("[PERFORMANCE] First monitoring cycle - establishing baseline")
+
         records: File = [
             (
                 portfolio_id,
@@ -354,7 +378,7 @@ class Loader:
             A dictionary with EventType (CREATE, AMEND, REMOVE) as key and a list
             containing the event logs for each event type as value.
         """
-        logger.info(f"Delivery {delivery_id}: processing {entity}...")
+        logger.debug(f"Processing {entity} for delivery {delivery_id}")
 
         query: BaseQueries = self._queries[entity]
         state_type: Type[State] = self._state[entity]
@@ -401,9 +425,15 @@ class Loader:
             start_time: Time delivery started.
             delivery: Delivery to process.
         """
+        logger.info(f"[PERSIST] Saving delivery {delivery_id} to database...")
         self._target.begin_transaction()
 
         for entity, content in delivery.items():
+            records_count = len(content["records"])
+            remove_count = len(content["keys_to_remove"])
+            if records_count > 0 or remove_count > 0:
+                logger.info(f"  → {entity}: +{records_count} upsert, -{remove_count} delete")
+            
             self.persist_postgres(
                 entity=entity,
                 records=content["records"],
@@ -420,7 +450,7 @@ class Loader:
         )
 
         self._target.commit_transaction()
-        logger.info(f"Delivery {delivery_id}: persisted to postgres.")
+        logger.debug(f"Delivery {delivery_id} committed to database")
 
     def persist_postgres(self, entity: Entity, records: List[State], keys_to_remove: Keys) -> None:
         """Persists records of entity to postgres.
