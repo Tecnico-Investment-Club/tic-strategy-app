@@ -184,7 +184,7 @@ class Loader:
                 )
                 time.sleep(t)
             except Exception as e:
-                logger.warning("error while importing:", e)
+                logger.warning("error while importing: %s", e)
                 stop = True
 
         logger.info("Terminating...")
