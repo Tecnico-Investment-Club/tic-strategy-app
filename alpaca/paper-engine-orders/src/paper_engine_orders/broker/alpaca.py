@@ -148,22 +148,26 @@ class Alpaca(Broker):
         if len(tickers) > 0:
             for t in tickers:
                 if t in position_tickers:
-
-                    closed_position: Order = self.trading_client.close_position(t)
-                    side = 1 if closed_position.side == "buy" else -1
-                    asset_id_type = "CRYPTO_TICKER" if self.crypto else "STOCK_TICKER"
-                    orders_record = (
-                        portfolio_id,
-                        side,  # side
-                        asset_id_type,
-                        closed_position.symbol,
-                        datetime.utcnow(),  # order timestamp
-                        0,
-                        0,
-                        closed_position.qty,  # quantity of the order
-                        closed_position.notional,  # notional value of the order
-                    )
-                    orders_records.append(orders_record)
+                    try:
+                        closed_position: Order = self.trading_client.close_position(t)
+                        side = 1 if closed_position.side == "buy" else -1
+                        asset_id_type = "CRYPTO_TICKER" if self.crypto else "STOCK_TICKER"
+                        orders_record = (
+                            portfolio_id,
+                            side,  # side
+                            asset_id_type,
+                            closed_position.symbol,
+                            datetime.utcnow(),  # order timestamp
+                            0,
+                            0,
+                            closed_position.qty,  # quantity of the order
+                            closed_position.notional,  # notional value of the order
+                        )
+                        orders_records.append(orders_record)
+                        logger.warning(f"Successfully closed position for {t}")
+                    except Exception as e:
+                        logger.error(f"Failed to close position for {t}: {e}. Skipping this asset and continuing with others.")
+                        continue
 
         return orders_records
 
