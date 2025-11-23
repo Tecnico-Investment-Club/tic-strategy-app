@@ -118,7 +118,7 @@ class Loader:
         self._crypto = True
         self._broker.crypto = self._crypto
         
-        logger.info(
+        logger.warning(
             f"Setup complete. Portfolio: {self._portfolio_name}, Strategy ID: {self._strategy_id}, "
             f"Cash Alloc: {self._cash_allocation}, Dry Run: {self._dry_run}, Dry Orders: {self._dry_orders}"
         )
@@ -169,7 +169,7 @@ class Loader:
         Polls the source every X seconds for new records.
         Once new records are found, operations are applied to the "target" components.
         """
-        logger.info(
+        logger.warning(
             f"Running as a service. "
             f"source_polling_interval=[{self._min_sleep},{self._max_sleep}]."
         )
@@ -187,7 +187,7 @@ class Loader:
                 logger.warning("error while importing: %s", e)
                 stop = True
 
-        logger.info("Terminating...")
+        logger.warning("Terminating...")
 
     def run_once(self) -> None:
         """Runs the synchronization process once."""
@@ -204,7 +204,7 @@ class Loader:
         latest_decision_delivery_id = decision_metadata[2]
         latest_decision_datadate = decision_metadata[3]
         
-        logger.info(f"Processing new decision. Strategy: {strategy_id}, Delivery: {latest_decision_delivery_id}")
+        logger.warning(f"Processing new decision. Strategy: {strategy_id}, Delivery: {latest_decision_delivery_id}")
 
         strategy_records = self.get_latest_decision(strategy_id)
 
@@ -225,7 +225,7 @@ class Loader:
         # Check if any asset_ids from the strategy are not tradable
         if len(asset_ids) != len(tradable_asset_ids):
             skipped_assets = set(asset_ids) - set(tradable_asset_ids)
-            logger.info(
+            logger.warning(
                 f"Tradable Check: Total assets in strategy = {len(asset_ids)}. "
                 f"Tradable assets = {len(tradable_asset_ids)}. "
                 f"Skipped (non-tradable) assets: {skipped_assets if skipped_assets else 'None'}"
@@ -247,7 +247,7 @@ class Loader:
             
         closed_records = []
         if closed_symbols:
-            logger.info(f"Closing {len(closed_symbols)} positions: {closed_symbols}")
+            logger.warning(f"Closing {len(closed_symbols)} positions: {closed_symbols}")
             if not self._dry_orders:
                 closed_records = self._broker.close_positions(portfolio_id, closed_symbols)
 
@@ -275,7 +275,7 @@ class Loader:
                 unique_short_portfolio.append(p)
 
         account_capital = self._broker.get_account_capital()
-        logger.info(f"Account Capital: {account_capital}")
+        logger.warning(f"Account Capital: {account_capital}")
 
         ############################################
         ### FOR NOW LONG ONLY IS HARD CODED HERE ###
@@ -302,13 +302,13 @@ class Loader:
         
         total_orders = len(closing_orders) + len(opening_orders)
         if total_orders > 0:
-            logger.info(f"Orders generated: {total_orders} (Closing: {len(closing_orders)}, Opening: {len(opening_orders)})")
+            logger.warning(f"Orders generated: {total_orders} (Closing: {len(closing_orders)}, Opening: {len(opening_orders)})")
             for o in closing_orders:
-                logger.info(f"  [CLOSE] {o['side'].upper()} {o['symbol']} Qty: {o['quantity']}")
+                logger.warning(f"  [CLOSE] {o['side'].upper()} {o['symbol']} Qty: {o['quantity']}")
             for o in opening_orders:
-                logger.info(f"  [OPEN]  {o['side'].upper()} {o['symbol']} Qty: {o['quantity']}")
+                logger.warning(f"  [OPEN]  {o['side'].upper()} {o['symbol']} Qty: {o['quantity']}")
         else:
-             logger.info("No new orders generated.")
+             logger.warning("No new orders generated.")
 
         if not self._dry_orders:
             self._broker.submit_orders(closing_orders)
@@ -340,7 +340,7 @@ class Loader:
             ),
         }
         if orders_records:
-            logger.info('New orders placed.')
+            logger.warning('New orders placed.')
             delivery[Entity.ORDERS] = self.process(
                 delivery_id=delivery_id,
                 entity=Entity.ORDERS,
@@ -354,7 +354,7 @@ class Loader:
 
         # persist delivery
         if not self._dry_run:
-            logger.info(f"Persisting delivery {delivery_id} with {len(orders_records)} orders.")
+            logger.warning(f"Persisting delivery {delivery_id} with {len(orders_records)} orders.")
             self.persist_delivery(
                 delivery_id=delivery_id,
                 start_time=start_time,
@@ -364,7 +364,7 @@ class Loader:
         del delivery
 
         end_time = datetime.utcnow()
-        logger.info(
+        logger.warning(
             f"Delivery {delivery_id}: processed ({end_time - start_time} seconds)."
         )
 
@@ -453,7 +453,7 @@ class Loader:
         Returns:
             A dictionary with records and keys to remove.
         """
-        logger.info(f"Delivery {delivery_id}: processing {entity}...")
+        logger.warning(f"Delivery {delivery_id}: processing {entity}...")
 
         query: BaseQueries = self._queries[entity]
         state_type: Type[State] = self._state[entity]
@@ -507,7 +507,7 @@ class Loader:
             records_count = len(content["records"])
             remove_count = len(content["keys_to_remove"])
             if records_count > 0 or remove_count > 0:
-                 logger.info(f"  -> {entity}: Upserting {records_count}, Deleting {remove_count}")
+                 logger.warning(f"  -> {entity}: Upserting {records_count}, Deleting {remove_count}")
 
             self.persist_postgres(
                 entity=entity,
@@ -525,7 +525,7 @@ class Loader:
         )
 
         self._target.commit_transaction()
-        logger.info(f"Delivery {delivery_id}: persisted to postgres.")
+        logger.warning(f"Delivery {delivery_id}: persisted to postgres.")
 
     def persist_postgres(self, entity: Entity, records: List[State], keys_to_remove: Keys) -> None:
         """Persists records of entity to postgres.

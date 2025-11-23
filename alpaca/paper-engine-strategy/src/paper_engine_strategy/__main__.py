@@ -119,7 +119,7 @@ class Loader:
         self._interval = args.interval
         self._lookback = args.lookback
 
-        logger.info(
+        logger.warning(
             f"Setup complete. Strategy Type: {self._strategy_type}, "
             f"Asset Type: {self._asset_type}, Interval: {self._interval}, "
             f"Lookback: {self._lookback}"
@@ -152,7 +152,7 @@ class Loader:
         Args:
             args: Variables given by user when starting loader process.
         """
-        logger.info(f"paper-engine-strategy")
+        logger.warning(f"paper-engine-strategy")
 
         self.setup(args=args)
 
@@ -173,7 +173,7 @@ class Loader:
         Polls the source every X seconds for new records.
         Once new records are found, operations are applied to the "target" components.
         """
-        logger.info(
+        logger.warning(
             f"Running as a service. "
             f"source_polling_interval=[{self._min_sleep},{self._max_sleep}]."
         )
@@ -191,7 +191,7 @@ class Loader:
                 logger.warning("error while importing: %s", e)
                 continue_watching_folder = False
 
-        logger.info("Terminating...")
+        logger.warning("Terminating...")
 
     def run_once(self) -> None:
         """Runs the synchronization process once."""
@@ -256,7 +256,7 @@ class Loader:
         del delivery, strategy_data
 
         end_time = datetime.utcnow()
-        logger.info(
+        logger.warning(
             f"Delivery {delivery_id}: processed ({end_time - start_time} seconds)."
         )
 
@@ -273,11 +273,11 @@ class Loader:
                 args=[(self._strategy_id,)],
             )
         if not latest_control:
-            logger.info(f"No previous control state found. Processing data from {latest_datadate}.")
+            logger.warning(f"No previous control state found. Processing data from {latest_datadate}.")
             return latest_datadate
 
         latest_control_ts = latest_control[0][1]
-        logger.info(f"Latest control timestamp: {latest_control_ts}, Latest data timestamp: {latest_datadate}")
+        logger.warning(f"Latest control timestamp: {latest_control_ts}, Latest data timestamp: {latest_datadate}")
         
         if latest_control_ts < latest_datadate:
             return latest_datadate
@@ -294,7 +294,7 @@ class Loader:
 
         raw_records = self._source.get_file(query, variable=(start_date,))
         records = [SpotPrices.from_source(r) for r in raw_records]
-        logger.info(f"Fetched {len(records)} records from source.")
+        logger.warning(f"Fetched {len(records)} records from source.")
         return records
 
     def filter_data(self, strategy_data: List[SpotPrices]):
@@ -309,10 +309,10 @@ class Loader:
             logger.warning(f"Unknown asset type: {self._asset_type}")
             return None
         
-        logger.info(f"Filtered data. {len(strategy_data)} -> {len(res)} records.")
+        logger.warning(f"Filtered data. {len(strategy_data)} -> {len(res)} records.")
         if res:
             unique_symbols = sorted(list(set(s.symbol for s in res)))
-            logger.info(f"Active symbols after filter: {unique_symbols}")
+            logger.warning(f"Active symbols after filter: {unique_symbols}")
         return res
 
     def run_strategy(self, data) -> File:
@@ -339,7 +339,7 @@ class Loader:
 
     def _log_strategy_decisions(self, prev_wgts: Optional[List[List]], strategy_records: File) -> None:
         """Logs the decisions made by the strategy compared to previous state."""
-        logger.info(f"Strategy generated {len(strategy_records)} target positions.")
+        logger.warning(f"Strategy generated {len(strategy_records)} target positions.")
 
         prev_weights_dict = {}
         if prev_wgts:
@@ -351,10 +351,10 @@ class Loader:
         all_symbols = set(prev_weights_dict.keys()) | set(new_weights_dict.keys())
         
         if not all_symbols:
-            logger.info("No active symbols in strategy.")
+            logger.warning("No active symbols in strategy.")
             return
 
-        logger.info("--- Portfolio Changes ---")
+        logger.warning("--- Portfolio Changes ---")
         changes_found = False
         for symbol in sorted(all_symbols):
             old_w = prev_weights_dict.get(symbol, 0.0)
@@ -364,11 +364,11 @@ class Loader:
                 continue
                 
             changes_found = True
-            logger.info(f"{symbol:<10}: {old_w:.4f} -> {new_w:.4f}")
+            logger.warning(f"{symbol:<10}: {old_w:.4f} -> {new_w:.4f}")
         
         if not changes_found:
-            logger.info("No significant weight changes required.")
-        logger.info("-------------------------")
+            logger.warning("No significant weight changes required.")
+        logger.warning("-------------------------")
 
     def get_strat_hash(self) -> str:
         """Get portfolio_optimization hash from portfolio_optimization params."""
@@ -411,7 +411,7 @@ class Loader:
         Returns:
             A dictionary with records and keys to remove.
         """
-        logger.info(f"Delivery {delivery_id}: processing {entity}...")
+        logger.warning(f"Delivery {delivery_id}: processing {entity}...")
 
         query: BaseQueries = self._queries[entity]
         state_type: Type[State] = self._state[entity]
@@ -461,14 +461,14 @@ class Loader:
             start_time: Time delivery started.
             delivery: Delivery to process.
         """
-        logger.info(f"Delivery {delivery_id}: persisting {len(delivery)} entity types to postgres.")
+        logger.warning(f"Delivery {delivery_id}: persisting {len(delivery)} entity types to postgres.")
         self._target.begin_transaction()
 
         for entity, content in delivery.items():
             records_count = len(content["records"])
             remove_count = len(content["keys_to_remove"])
             if records_count > 0 or remove_count > 0:
-                logger.info(f"  -> {entity}: Upserting {records_count}, Deleting {remove_count}")
+                logger.warning(f"  -> {entity}: Upserting {records_count}, Deleting {remove_count}")
                 
             self.persist_postgres(
                 entity=entity,
@@ -486,7 +486,7 @@ class Loader:
         )
 
         self._target.commit_transaction()
-        logger.info(f"Delivery {delivery_id}: persisted to postgres.")
+        logger.warning(f"Delivery {delivery_id}: persisted to postgres.")
 
     def persist_postgres(
         self, entity: Entity, records: List[State], keys_to_remove: Keys

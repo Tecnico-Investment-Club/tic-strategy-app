@@ -26,7 +26,7 @@ class Alpaca(Broker):
         self.trading_stream = TradingStream(api_key, secret_key, paper=True)
 
         self.data_client = StockHistoricalDataClient(api_key, secret_key)
-        logger.info("Alpaca TradingClient initialized (Paper=True).")
+        logger.warning("Alpaca TradingClient initialized (Paper=True).")
 
     def get_portfolio_value(self, side: str = "ALL") -> Decimal:
         """Get portfolio value."""
@@ -59,13 +59,13 @@ class Alpaca(Broker):
         positions = self.get_all_positions()
         
         if not positions:
-            logger.info("No positions found to calculate weights.")
+            logger.warning("No positions found to calculate weights.")
             return None
 
         long_value = self.get_portfolio_value("LONG")
         short_value = self.get_portfolio_value("SHORT")
         
-        logger.info(f"Calculating weights for {len(positions)} positions. Long Val: {long_value}, Short Val: {short_value}")
+        logger.warning(f"Calculating weights for {len(positions)} positions. Long Val: {long_value}, Short Val: {short_value}")
 
         weights = []
         for symbol, position in positions.items():

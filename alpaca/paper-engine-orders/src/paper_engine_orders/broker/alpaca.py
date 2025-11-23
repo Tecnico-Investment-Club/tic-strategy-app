@@ -36,7 +36,10 @@ class Alpaca(Broker):
 
         self.stock_data_client = StockHistoricalDataClient(api_key, secret_key)
         self.crypto_data_client = CryptoHistoricalDataClient(api_key, secret_key)
-        logger.info("Alpaca TradingClient initialized (Paper=True).")
+        if self.trading_client and self.trading_stream and self.stock_data_client and self.crypto_data_client:
+            logger.warning("Alpaca TradingClient initialized (Paper=True).")
+        else:
+            logger.warning("Alpaca TradingClient NOT initialized properly. One or more clients is None.")
 
     def get_account_capital(self) -> Decimal:
         """Get account capital (equity + cash)."""
@@ -114,7 +117,7 @@ class Alpaca(Broker):
                 time_in_force=TimeInForce.GTC,
             )
         else:
-            logger.info("No valid order type was provided.")
+            logger.warning("No valid order type was provided.")
             return None
 
         self.latest_order = self.trading_client.submit_order(order_data=order_data)
@@ -123,9 +126,9 @@ class Alpaca(Broker):
         """Submit provided orders to the broker."""
         for order in orders:
             try:
-                logger.info(f"Submitting {order['side']} order for {order['symbol']} qty={order['quantity']}")
+                logger.warning(f"Submitting {order['side']} order for {order['symbol']} qty={order['quantity']}")
                 self.submit_order("MARKET", order)
-                logger.info(f"Order submitted successfully: {order['symbol']}")
+                logger.warning(f"Order submitted successfully: {order['symbol']}")
             except Exception as e:
                 logger.warning(f"Order: {order} did not go through. {e}")
                 continue
