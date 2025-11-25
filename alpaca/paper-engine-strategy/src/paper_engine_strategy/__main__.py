@@ -82,6 +82,7 @@ class Loader:
     }
     _strategies: Dict[str, BaseStrategy] = {
         "PO_HURST_EXPONENT": strat.POHurstExpStrategy,
+        "PO_SMA": strat.SMAStrategy,
     }
     _schemas: Dict[str, str] = {
         "STOCK": "alpaca",
