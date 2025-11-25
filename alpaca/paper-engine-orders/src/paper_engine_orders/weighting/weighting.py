@@ -61,14 +61,17 @@ class Weighting(BaseWeight):
         self.prices: Dict = {}
         for s in self.strategy_records:
             if s.decision == 1:
-                self.prices[s.asset_id] = latest_asks[s.asset_id] if s.asset_id in latest_asks.keys() else 0
+                price = latest_asks.get(s.asset_id, 0)
+                self.prices[s.asset_id] = price if price is not None else 0
             else:
-                self.prices[s.asset_id] = latest_bids[s.asset_id] if s.asset_id in latest_bids.keys() else 0
+                price = latest_bids.get(s.asset_id, 0)
+                self.prices[s.asset_id] = price if price is not None else 0
 
-        # FILTER OUT STRAT RECORDS WITH TICKERS WITH PRICE 0
+        # FILTER OUT STRAT RECORDS WITH TICKERS WITH PRICE 0 OR NONE
         available_strat_records = []
         for s in self.strategy_records:
-            if self.prices[s.asset_id] != 0:
+            price = self.prices[s.asset_id]
+            if price is not None and price != 0:
                 available_strat_records.append(s)
         self.strategy_records = available_strat_records
 
