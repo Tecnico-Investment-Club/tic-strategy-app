@@ -11,7 +11,7 @@ class SMA:
     Mantém a posição anterior se o sinal não mudou.
     """
 
-    def _init_(
+    def __init__(
         self,
         symbol: str,
         sma_window: int,
