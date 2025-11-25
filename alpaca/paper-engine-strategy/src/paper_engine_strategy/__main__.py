@@ -333,7 +333,7 @@ class Loader:
         for record in data:
             if record.symbol not in symbols_with_prices:
                 symbols_with_prices[record.symbol] = []
-            symbols_with_prices[record.symbol].append((record.datetime, record.close))
+            symbols_with_prices[record.symbol].append((record.open_time, record.close_price))
         
         logger.info("[PRICES] Current market snapshot:")
         for symbol in sorted(symbols_with_prices.keys()):
