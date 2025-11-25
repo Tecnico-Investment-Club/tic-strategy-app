@@ -49,7 +49,7 @@ class SMA:
         else:
             weight = signal
 
-        logger.debug(
+        logger.info(
             f"[SMA] {self.symbol} | Price={latest_price:.2f} | SMA={latest_sma:.2f} | Weight={weight}"
         )
 
