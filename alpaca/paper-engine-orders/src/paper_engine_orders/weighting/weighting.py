@@ -51,7 +51,10 @@ class Weighting(BaseWeight):
 
     def get_target_weights(self) -> None:
         """Get weighting method target weights."""
-        self.target_weights = {s.asset_id: s.weight for s in self.strategy_records}
+        self.target_weights = {}
+        for s in self.strategy_records:
+            weight = s.weight if s.weight is not None else Decimal(0)
+            self.target_weights[s.asset_id] = weight
 
     def get_weights(self) -> None:
         """Get portfolio weights."""
