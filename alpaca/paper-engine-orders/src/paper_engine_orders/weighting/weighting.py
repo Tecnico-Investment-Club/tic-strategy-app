@@ -84,6 +84,12 @@ class Weighting(BaseWeight):
             target_notional = self.capital * self.target_weights[s.asset_id]
 
             price = self.prices[s.asset_id]
+            
+            # Additional safety check (should already be filtered)
+            if price is None or price == 0:
+                logger.warning(f"Skipping {s.asset_id} in get_weights - invalid price: {price}")
+                continue
+            
             if s.asset_id_type == "STOCK_TICKER":
                 quantity = Decimal(target_notional // price)
             else:
@@ -102,7 +108,12 @@ class Weighting(BaseWeight):
 
         # IMPLEMENT REALOCATION OF NOT ALLOCATED CAPITAL (?)
 
-        self.real_weights = {k: v / used_capital for k, v in notional.items()}
+        if used_capital > 0:
+            self.real_weights = {k: v / used_capital for k, v in notional.items()}
+        else:
+            logger.warning("No capital used - all assets filtered out or have zero allocation")
+            self.real_weights = {}
+        
         self.total_value = sum([v for v in notional.values()])
         self.quantities = quantities
         self.notional = notional
@@ -118,6 +129,12 @@ class Weighting(BaseWeight):
                 else None
             )
             price = self.prices[s.asset_id]
+            
+            # Skip if price is None or 0
+            if price is None or price == 0:
+                logger.warning(f"Skipping order for {s.asset_id} - invalid price: {price}")
+                continue
+            
             if s.decision == 1:
                 quantity = (
                     target_quantity - curr_quantity
@@ -153,6 +170,13 @@ class Weighting(BaseWeight):
         """Get orders records."""
         records: File = []
         for s in self.strategy_records:
+            price = self.prices[s.asset_id]
+            
+            # Skip if price is None or 0
+            if price is None or price == 0:
+                logger.warning(f"Skipping order record for {s.asset_id} - invalid price: {price}")
+                continue
+            
             target_quantity = self.quantities[s.asset_id]
             curr_quantity = (
                 self.current_positions[s.asset_id]
@@ -164,7 +188,7 @@ class Weighting(BaseWeight):
                 if curr_quantity
                 else target_quantity
             )
-            notional_change = abs(quantity * self.prices[s.asset_id])
+            notional_change = abs(quantity * price)
             if quantity and notional_change > 1:
                 records.append(
                     (
