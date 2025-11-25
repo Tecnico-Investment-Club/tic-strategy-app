@@ -76,26 +76,30 @@ class PortfolioOptimization:
             functional_constraints=self.functional_constraints,
         )
 
-        assets_to_buy, _ = analysis.extract_assets(
+        assets_to_buy, assets_to_sell = analysis.extract_assets(
             buy_and_sells, 0
         )
-        logger.debug(f"Assets to buy: {assets_to_buy}")
+        logger.info(f"[PO] Assets to buy: {assets_to_buy}")
+        logger.info(f"[PO] Assets to sell: {assets_to_sell}")
 
         if len(assets_to_buy) > 0:
+            logger.info(f"[PO] Generating uniform weights for {len(assets_to_buy)} assets to buy")
             buy_array, _, _, _ = pw.calculate_uniform_weights(
                 assets_to_buy, [], shorting_value=0
             )
-            logger.debug(f"Buy array: {buy_array}")
+            logger.info(f"[PO] Buy array: {buy_array}")
 
             target_weights = [
                 [ticker, self.last_date, weight]
                 for ticker, weight in zip(assets_to_buy, buy_array)
             ]
-            logger.debug(f"Target weights: {target_weights}")
+            logger.info(f"[PO] Target weights: {target_weights}")
 
             if self.previous_weights is not None:
                 prev_assets = [pw[0] for pw in self.previous_weights]
                 excluded_assets = [a for a in prev_assets if a not in assets_to_buy]
+                logger.info(f"[PO] Previous assets: {prev_assets}")
+                logger.info(f"[PO] Assets to exclude (set to 0): {excluded_assets}")
                 target_weights.extend([[a, self.last_date, 0] for a in excluded_assets])
 
                 target_weights.sort(key=lambda x: x[0])
@@ -108,6 +112,7 @@ class PortfolioOptimization:
                     self.best_delta,
                     tomas=True,
                 )
+                logger.info(f"[PO] Rebalancing alpha (controls transition speed): {alpha:.6f}")
 
                 rebalanced_weights = []
                 for prev, target in zip(self.previous_weights, target_weights):
@@ -115,26 +120,28 @@ class PortfolioOptimization:
                     date = prev[1]  # Assuming the datetime is the same
                     weight = alpha * prev[2] + (1 - alpha) * target[2]
                     rebalanced_weights.append([ticker, date, weight])
+                    logger.info(f"[PO]   {ticker}: prev={prev[2]:.6f}, target={target[2]:.6f} → rebalanced={weight:.6f}")
 
-                logger.debug(f"Rebalanced weights: {rebalanced_weights}")
+                logger.info(f"[PO] Rebalanced weights: {rebalanced_weights}")
                 return rebalanced_weights
 
             else:
-                logger.debug("No previous weights, using target weights")
+                logger.info("[PO] No previous weights, using target weights")
                 return target_weights
 
         else:
-            logger.info("No assets to buy.")
+            logger.warning("[PO] *** NO ASSETS TO BUY - Strategy did not generate any buy signals ***")
             if self.previous_weights:
-                logger.info("Using previous weights.")
+                logger.info("[PO] Using previous weights (holding current positions).")
                 return [
                     [ticker, self.last_date, weight]
                     for ticker, _, weight in self.previous_weights
                 ]
             else:
-                logger.info("No previous weights, returning equal weights.")
+                logger.warning("[PO] No previous weights, returning equal weights across all assets.")
                 equal_weights = [
                     [ticker, self.last_date, 1 / len(self.closes.columns)]
                     for ticker in self.closes.columns
                 ]
+                logger.info(f"[PO] Equal weights: {equal_weights}")
                 return equal_weights

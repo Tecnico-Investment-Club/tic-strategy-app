@@ -1,10 +1,13 @@
 from datetime import datetime as dt
+import logging
 
 import numpy as np
 import pandas as pd
 
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_models as dm
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.indicators as indicator
+
+logger = logging.getLogger(__name__)
 
 
 def get_sigmoid_momentum_signals(
@@ -100,6 +103,8 @@ def buy_and_sell_signalling(
         buy_and_sell_signals[i] = {"buy": [], "sell": []}
         trendy_assets = data["trendy_assets"]
         mean_reverting_assets = data["mean_reverting_assets"]
+        
+        logger.info(f"[SIGNAL] Processing {len(trendy_assets)} trendy assets, {len(mean_reverting_assets)} mean-reverting assets")
 
         # Process trendy assets
         if momentum_type == dm.Momentum_Type.Cumulative_Returns:
@@ -118,29 +123,46 @@ def buy_and_sell_signalling(
                     ).append(asset)
 
         elif momentum_type == dm.Momentum_Type.MACD:
+            logger.info(f"[SIGNAL] Evaluating MACD signals for trendy assets:")
             for asset, macd_values in trendy_assets:
                 close_price = next(
                     (tuple[1] for tuple in data["close_price"] if tuple[0] == asset),
                     None,
                 )
                 macd = macd_values[1]
+                signal_line = macd_values[2]
                 histogram = macd_values[3]
+                hist_diff = macd_values[4]
                 lower_threshold = macd_values[5]
                 upper_threshold = macd_values[6]
                 hist_trend = macd_values[7]
+                
+                # Log detailed conditions for each asset
+                macd_positive = macd > 0
+                hist_in_range = lower_threshold < histogram < upper_threshold
+                trend_positive = hist_trend > 0
+                
+                logger.info(f"[SIGNAL]   {asset}:")
+                logger.info(f"[SIGNAL]     MACD={macd:.6f} (>0: {macd_positive})")
+                logger.info(f"[SIGNAL]     Histogram={histogram:.6f} (in [{lower_threshold:.6f}, {upper_threshold:.6f}]: {hist_in_range})")
+                logger.info(f"[SIGNAL]     Trend={hist_trend:.6f} (>0: {trend_positive})")
                 
                 if (
                     macd > 0
                     and lower_threshold < histogram < upper_threshold
                     and hist_trend > 0
                 ):  
+                    logger.info(f"[SIGNAL]     ✓ BUY signal generated for {asset}")
                     buy_and_sell_signals.setdefault(i, {}).setdefault("buy", []).append(
                         asset
                     )
                 elif macd_values[3] < -np.inf or macd_values[4] < -np.inf:
+                    logger.info(f"[SIGNAL]     ✓ SELL signal generated for {asset}")
                     buy_and_sell_signals.setdefault(i, {}).setdefault(
                         "sell", []
                     ).append(asset)
+                else:
+                    logger.info(f"[SIGNAL]     ✗ NO signal for {asset}")
 
         # Process mean-reverting assets
         if mean_rev_type == dm.Mean_Rev_Type.Bollinger_Bands:
@@ -160,18 +182,33 @@ def buy_and_sell_signalling(
                     )
 
         elif mean_rev_type == dm.Mean_Rev_Type.RSI:
+            logger.info(f"[SIGNAL] Evaluating RSI signals for mean-reverting assets:")
             for asset, rsi in mean_reverting_assets:
-                # print("mean_reverting_assets", mean_reverting_assets)
-                # print("rsi", rsi)
-                # print("rsi_overbought", functional_constraints.rsi_overbought)
+                oversold_threshold = functional_constraints.rsi_oversold
+                overbought_threshold = functional_constraints.rsi_overbought
+                
+                logger.info(f"[SIGNAL]   {asset}: RSI={rsi:.2f} (oversold<{oversold_threshold}, overbought>{overbought_threshold})")
+                
                 if rsi > functional_constraints.rsi_overbought:
+                    logger.info(f"[SIGNAL]     ✓ SELL signal (overbought)")
                     buy_and_sell_signals.setdefault(i, {}).setdefault(
                         "sell", []
                     ).append(asset)
                 elif rsi < functional_constraints.rsi_oversold:
+                    logger.info(f"[SIGNAL]     ✓ BUY signal (oversold)")
                     buy_and_sell_signals.setdefault(i, {}).setdefault("buy", []).append(
                         asset
                     )
+                else:
+                    logger.info(f"[SIGNAL]     ✗ NO signal (neutral zone)")
+    
+    # Log summary
+    for i, signals in buy_and_sell_signals.items():
+        logger.warning(f"[SIGNAL] Summary: {len(signals['buy'])} BUY signals, {len(signals['sell'])} SELL signals")
+        if signals['buy']:
+            logger.warning(f"[SIGNAL]   Assets to BUY: {signals['buy']}")
+        if signals['sell']:
+            logger.warning(f"[SIGNAL]   Assets to SELL: {signals['sell']}")
 
     return buy_and_sell_signals
 

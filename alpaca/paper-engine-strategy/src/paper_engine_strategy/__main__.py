@@ -328,6 +328,28 @@ class Loader:
 
     def run_strategy(self, data) -> File:
         """Executes the strategy and generates weight allocations."""
+        # Log price context for all symbols
+        symbols_with_prices = {}
+        for record in data:
+            if record.symbol not in symbols_with_prices:
+                symbols_with_prices[record.symbol] = []
+            symbols_with_prices[record.symbol].append((record.datetime, record.close))
+        
+        logger.info("[PRICES] Current market snapshot:")
+        for symbol in sorted(symbols_with_prices.keys()):
+            prices = symbols_with_prices[symbol]
+            if len(prices) >= 2:
+                latest_price = prices[-1][1]
+                prev_price = prices[-2][1]
+                change_pct = ((latest_price - prev_price) / prev_price) * 100
+                logger.info(f"[PRICES]   {symbol}: ${latest_price:.2f} ({change_pct:+.2f}% from previous)")
+                
+                # Show longer-term trend
+                if len(prices) >= 30:
+                    month_ago_price = prices[-30][1]
+                    month_change_pct = ((latest_price - month_ago_price) / month_ago_price) * 100
+                    logger.info(f"[PRICES]     30-bar change: {month_change_pct:+.2f}%")
+        
         prev_wgts = self._broker.get_current_weights()
         strategy = self._strategy.setup(self._strategy_config)
         raw_strategy_records = strategy.get_weights(data, prev_wgts)
@@ -376,6 +398,7 @@ class Loader:
             new_w = new_weights_dict.get(symbol, 0.0)
             
             if abs(old_w - new_w) < 1e-6:
+                logger.warning(f"  [UNCHANGED] {symbol:<10}: {old_w:.4f} → {new_w:.4f}")
                 continue
             
             changes_found = True

@@ -1,10 +1,13 @@
 from datetime import datetime as dt
+import logging
 
 import pandas as pd
 from hurst import compute_Hc
 
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.indicators as indicator
 import paper_engine_strategy.strategy.portfolio_optimization.helpers.data_models as dm
+
+logger = logging.getLogger(__name__)
 
 """
 
@@ -257,12 +260,18 @@ def filter_data(
     df_trendy_assets = pd.DataFrame()
     df_mean_reverting_assets = pd.DataFrame()
 
-    print(f"Lower Threshold: {lower_threshold}, Upper Threshold: {upper_threshold}")
+    logger.info(f"[HURST] Threshold ranges - Lower: {lower_threshold}, Upper: {upper_threshold}")
 
     if live_analysis:
         keys, H = zip(*dict_to_filter["hurst_exponents"])
+        
+        # Log all Hurst values
+        logger.info(f"[HURST] Computing Hurst exponents for {len(keys)} assets:")
+        for key, h in zip(keys, H):
+            logger.info(f"[HURST]   {key}: {h:.4f}")
 
         trendy_assets = [key for key, h in zip(keys, H) if h > upper_threshold]
+        logger.info(f"[HURST] Trendy assets (H > {upper_threshold}): {trendy_assets}")
         df_trendy_assets = pd.concat(
             [
                 df_trendy_assets,
@@ -272,6 +281,8 @@ def filter_data(
         )
 
         mean_reverting_assets = [key for key, h in zip(keys, H) if h < lower_threshold]
+        logger.info(f"[HURST] Mean-reverting assets (H < {lower_threshold}): {mean_reverting_assets}")
+        
         df_mean_reverting_assets = pd.concat(
             [
                 df_mean_reverting_assets,
@@ -286,12 +297,22 @@ def filter_data(
                 for key, mom in zip(keys, dict_to_filter["momentum_cumrets"])
                 if key in trendy_assets
             ]
+            logger.info(f"[MOMENTUM] Cumulative returns for trendy assets:")
+            for key, mom in trendy_assets_list:
+                logger.info(f"[MOMENTUM]   {key}: {mom:.6f}")
         elif momentum_type == dm.Momentum_Type.MACD:
             trendy_assets_list = [
                 (key, macd)
                 for key, macd in zip(keys, dict_to_filter["macd_values"])
                 if key in trendy_assets
             ]
+            logger.info(f"[MOMENTUM] MACD values for trendy assets:")
+            for key, macd_vals in trendy_assets_list:
+                macd, signal, hist, hist_diff, lower_th, upper_th, trend = macd_vals[1:]
+                logger.info(f"[MOMENTUM]   {key}:")
+                logger.info(f"[MOMENTUM]     MACD: {macd:.6f}, Signal: {signal:.6f}")
+                logger.info(f"[MOMENTUM]     Histogram: {hist:.6f}, Trend: {trend:.6f}")
+                logger.info(f"[MOMENTUM]     Thresholds: [{lower_th:.6f}, {upper_th:.6f}]")
         else:
             raise ValueError(f"Momentum Type {momentum_type} not supported")
 
@@ -301,12 +322,18 @@ def filter_data(
                 for key, bol in zip(keys, dict_to_filter["bollinger_bands"])
                 if key in mean_reverting_assets
             ]
+            logger.info(f"[MEAN_REV] Bollinger Bands for mean-reverting assets:")
+            for key, bb in mean_reverting_assets_list:
+                logger.info(f"[MEAN_REV]   {key}: Upper={bb[0]:.4f}, Mid={bb[1]:.4f}, Lower={bb[2]:.4f}")
         elif mean_rev_type == dm.Mean_Rev_Type.RSI:
             mean_reverting_assets_list = [
                 (key, rsi)
                 for key, rsi in dict_to_filter["RSI"]
                 if key in mean_reverting_assets
             ]
+            logger.info(f"[MEAN_REV] RSI for mean-reverting assets:")
+            for key, rsi in mean_reverting_assets_list:
+                logger.info(f"[MEAN_REV]   {key}: RSI={rsi:.2f}")
         else:
             raise ValueError(f"Mean Reversion Type {mean_rev_type} not supported")
 

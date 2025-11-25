@@ -161,13 +161,13 @@ def calculate_macd(close, short_window=12, long_window=26, signal_window=9):
 
         percentile = 0.85
         #threshold_index = int(len(sorted_positive_histogram) * percentile)
-        #threshold = sorted_positive_histogram[threshold_index]
+        #threshold = sorted_positive_histogram.iloc[threshold_index]
 
         lower_thresold_index = int(len(sorted_positive_histogram) * (percentile-0.8499)) # 0
-        lower_threshold = sorted_positive_histogram[lower_thresold_index]
+        lower_threshold = sorted_positive_histogram.iloc[lower_thresold_index]
 
         upper_threshold_index = int(len(sorted_positive_histogram) * (percentile-0.15)) #60%
-        upper_threshold = sorted_positive_histogram[upper_threshold_index]
+        upper_threshold = sorted_positive_histogram.iloc[upper_threshold_index]
 
         gradient = np.gradient(histogram)
         trend = np.mean(gradient[-3:])
