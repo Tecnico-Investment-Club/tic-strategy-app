@@ -351,7 +351,7 @@ class Loader:
                     month_change_pct = ((latest_price - month_ago_price) / month_ago_price) * 100
                     logger.info(f"[PRICES]     30-bar change: {month_change_pct:+.2f}%")
         
-        prev_wgts = self._broker.get_current_weights()
+        prev_wgts = self._broker.get_current_weights() if self._requires_prev_weights else None
         strategy = self._strategy.setup(self._strategy_config)
         raw_strategy_records = strategy.get_weights(data, prev_wgts)
         strategy_records = [
