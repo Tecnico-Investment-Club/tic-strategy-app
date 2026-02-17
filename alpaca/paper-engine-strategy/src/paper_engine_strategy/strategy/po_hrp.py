@@ -74,10 +74,12 @@ class POHRPStrategy(BaseStrategy):
             return self._fallback(prev_weights, current_date)
 
         # 4. Limpeza e Cálculo
-        last_data = data.iloc[-180:]
-        last_data = last_data.dropna(axis=1, how='all').ffill().dropna(axis=1, how='any')
+        last_data = data.iloc[-186:] 
+        last_data = last_data.dropna(axis=1, how='all')
+        last_data = last_data.ffill().iloc[3:].dropna(axis=1, how='any')
 
         if last_data.empty or last_data.shape[1] < 2:
+            logger.warning("[HRP] Dados insuficientes após limpeza.")
             return self._fallback(prev_weights, current_date)
 
         try:
