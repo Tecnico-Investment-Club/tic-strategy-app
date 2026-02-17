@@ -25,7 +25,7 @@ class POHRPStrategy(BaseStrategy):
         res = cls()
         res.params = {
             "n_clusters": int(strategy_config.get("n_clusters", hrp_config.N_CLUSTERS)),
-            "lookback_days": int(strategy_config.get("lookback_days", 200)),
+            "lookback_days": int(strategy_config.get("lookback_days", 300)),
         }
         return res
 
