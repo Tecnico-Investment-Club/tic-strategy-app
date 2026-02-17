@@ -3,8 +3,8 @@ from paper_engine_strategy.strategy.sma_strategy import SMAStrategy
 from paper_engine_strategy.strategy.po_hrp import POHRPStrategy
 
 __all__ = [
-    "POHurstExpStrategy"
-    "SMAStrategy"
+    "POHurstExpStrategy",
+    "SMAStrategy",
     "POHRPStrategy"
 ]
 
