@@ -7,9 +7,8 @@ from datetime import datetime, timedelta
 # Import base
 from paper_engine_strategy.strategy.base import BaseStrategy
 
-# Imports HRP
-import hrp.config as hrp_config
-from hrp.functions import _get_weights, _get_sp500_constituents
+import paper_engine_strategy.strategy.hrp.config as hrp_config
+from paper_engine_strategy.strategy.hrp.functions import _get_weights, _get_sp500_constituents
 
 logger = logging.getLogger(__name__)
 
