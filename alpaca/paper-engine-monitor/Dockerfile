@@ -13,6 +13,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
 && apk add --no-cache \
         postgresql-dev \
         gcc \
+        g++ \
         libc-dev \
         make \
         dumb-init \

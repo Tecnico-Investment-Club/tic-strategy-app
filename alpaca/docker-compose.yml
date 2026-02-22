@@ -27,37 +27,24 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-  
-  po-hurst-orders:
-    build: ./paper-engine-orders
-    container_name: po-hurst-orders
-    env_file: ./env/orders.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  po-hurst-strategy:
-    build: ./paper-engine-strategy
-    container_name: po-hurst-strategy
-    env_file: ./env/strategy.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   sma-monitor:
     image: monitor
     container_name: sma-monitor
     env_file: ./env/sma-monitor.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  
+  po-hurst-orders:
+    build: ./paper-engine-orders
+    container_name: po-hurst-orders
+    env_file: ./env/orders.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: always
@@ -80,10 +67,36 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  po-hurst-strategy:
+    build: ./paper-engine-strategy
+    container_name: po-hurst-strategy
+    env_file: ./env/strategy.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   sma-strategy:
     build: ./paper-engine-strategy
     container_name: sma-strategy
     env_file: ./env/sma-strategy.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  po-hrp-strategy:
+    build: ./paper-engine-strategy
+    container_name: po-hrp-strategy
+    env_file: ./env/po-hrp-strategy.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: always
