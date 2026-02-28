@@ -210,34 +210,41 @@ class Loader:
 
         strategy_records = self.get_latest_decision(strategy_id)
         logger.info(f"[STRATEGY] Fetched {len(strategy_records)} strategy records from database")
-        logger.info(f"[STRATEGY] Asset type: {strategy_records[0].asset_id_type if strategy_records else 'N/A'}")
 
-        # ASSET ID TYPE STARTS WITH STOCK
-        if strategy_records[0].asset_id_type[:5] == "STOCK":
-            self._crypto = False
-            self._broker.crypto = self._crypto
-            # CHECK IF MARKET IS OPEN
+        if not strategy_records:
+            logger.debug("[STRATEGY] No strategy records returned.")
+            return
+
+        # CORRECT ASSET TYPE BASED ON SYMBOL (database may have incorrect types)
+        corrected_count = 0
+        for record in strategy_records:
+            corrected_type = self.detect_asset_type(record.asset_id)
+            if corrected_type != record.asset_id_type:
+                logger.info(
+                    f"[ASSET_TYPE] Corrected {record.asset_id}: {record.asset_id_type} → {corrected_type}"
+                )
+                record.asset_id_type = corrected_type
+                corrected_count += 1
+
+        if corrected_count > 0:
+            logger.info(f"[ASSET_TYPE] Corrected {corrected_count} asset types based on symbol analysis")
+
+        # SEPARATE BY CORRECTED ASSET TYPE
+        crypto_records = [r for r in strategy_records if r.asset_id_type == "CRYPTO_TICKER"]
+        stock_records = [r for r in strategy_records if r.asset_id_type == "STOCK_TICKER"]
+
+        if crypto_records:
+            logger.info(f"[STRATEGY] Crypto assets: {len(crypto_records)}")
+        if stock_records:
+            logger.info(f"[STRATEGY] Stock assets: {len(stock_records)}")
+
+        # MARKET HOURS CHECK - ONLY IF STOCKS EXIST
+        if stock_records:
             curr_time = datetime.now(us_market_tz).time()
             market_open = self.check_market_open(US_MARKET_OPEN, US_MARKET_CLOSE, curr_time)
             if not market_open:
-                logger.debug("US Stock Market is not open.")
+                logger.warning("[MARKET] US Stock Market is not open. Skipping all assets (stocks + crypto).")
                 return
-
-        asset_ids = [s.asset_id for s in strategy_records]
-        tradable_asset_ids = self._broker.check_tradable(asset_ids)
-        
-        # Check if any asset_ids from the strategy are not tradable
-        if len(asset_ids) != len(tradable_asset_ids):
-            skipped_assets = set(asset_ids) - set(tradable_asset_ids)
-            logger.info(
-                f"[TRADABILITY] Removed {len(skipped_assets)} non-tradable assets from {len(asset_ids)} total: {sorted(list(skipped_assets))}"
-            )
-        else:
-            logger.info(f"[TRADABILITY] All {len(asset_ids)} assets are tradable")
-        
-        strategy_records = [
-            s for s in strategy_records if s.asset_id in tradable_asset_ids
-        ]
 
         current_positions = self._broker.get_positions()
         if current_positions:
@@ -245,118 +252,126 @@ class Loader:
         else:
             logger.info("[POSITIONS] No current positions")
 
-        # CLOSE POSITIONS
-        closed_symbols = []
-        if current_positions:
-            current_symbols = list(current_positions.keys())
-            strategy_symbols = [s.asset_id for s in strategy_records]
-            closed_symbols = [s for s in current_symbols if s not in strategy_symbols]
-            
-        closed_records = []
-        if closed_symbols:
-            logger.info(f"[CLOSE] Closing {len(closed_symbols)} positions: {closed_symbols}")
-            if not self._dry_orders:
-                closed_records = self._broker.close_positions(portfolio_id, closed_symbols)
-        else:
-            logger.info("[CLOSE] No positions to close")
-
-        open_positions = [s for s in strategy_records if s.asset_id not in closed_symbols]
-        logger.info(f"[PORTFOLIO] Open positions to manage: {len(open_positions)} assets")
-
-        long_portfolio = [p for p in open_positions if p.decision == 1]
-        long_asset_ids = [p.asset_id for p in long_portfolio]
-        logger.info(f"[PORTFOLIO] Long portfolio: {len(long_portfolio)} positions = {long_asset_ids}")
-
-        short_portfolio = [
-            p
-            for p in open_positions
-            if p.decision == -1 and p.asset_id not in long_asset_ids
-        ]
-        short_asset_ids = list({p.asset_id for p in short_portfolio})
-        shortable_ids = self._broker.check_shortable(short_asset_ids)
-        short_portfolio = [
-            p for p in short_portfolio if p.asset_id in shortable_ids
-        ]
-        # MAKE TICKERS UNIQUE
-        seen_asset_ids = []
-        unique_short_portfolio = []
-        for p in short_portfolio:
-            if p.asset_id not in seen_asset_ids:
-                seen_asset_ids.append(p.asset_id)
-                unique_short_portfolio.append(p)
-
-        if unique_short_portfolio:
-            logger.info(f"[PORTFOLIO] Short portfolio: {len(unique_short_portfolio)} positions")
-            if len(short_asset_ids) != len(shortable_ids):
-                non_shortable = set(short_asset_ids) - set(shortable_ids)
-                logger.info(f"[PORTFOLIO] Removed {len(non_shortable)} non-shortable assets: {non_shortable}")
-        else:
-            logger.info("[PORTFOLIO] Short portfolio: 0 positions (long-only strategy)")
-
         account_capital = self._broker.get_account_capital()
+        logger.info(f"[ACCOUNT] Total capital available: ${account_capital}")
 
-        ############################################
-        ### FOR NOW LONG ONLY IS HARD CODED HERE ###
-        ############################################
-        long_capital = account_capital
-        if self._crypto:
-            # CASH CUSHION FOR CRYPTO SLIPPAGE
-            long_capital = (1 - self._cash_allocation) * long_capital
-        short_capital = Decimal("0")
-        ############################################
+        # PROCESS BOTH ASSET TYPES SEPARATELY
+        all_orders = []
+        all_records = []
 
-        cash_cushion_info = f" ({self._cash_allocation*100:.1f}% cash cushion)" if self._crypto else ""
-        logger.info(f"[CAPITAL] Account: ${account_capital} | Long: ${long_capital} | Short: ${short_capital}{cash_cushion_info}")
+        # Process crypto records if any
+        if crypto_records:
+            logger.info("[========== PROCESSING CRYPTO ==========]")
+            self._broker.crypto = True
 
-        long_weighting = Weighting.setup(
-            self._broker, long_capital, long_portfolio, current_positions
-        ) if long_portfolio and long_capital > 0 else None
-        short_weighting = Weighting.setup(
-            self._broker, short_capital, unique_short_portfolio, current_positions
-        ) if unique_short_portfolio and short_capital > 0 else None
+            crypto_asset_ids = [s.asset_id for s in crypto_records]
+            crypto_tradable_ids = self._broker.check_tradable(crypto_asset_ids)
+            crypto_filtered = [s for s in crypto_records if s.asset_id in crypto_tradable_ids]
 
-        if long_weighting:
-            logger.info("[WEIGHTING] Long weighting calculated successfully")
-        else:
-            logger.info("[WEIGHTING] No long weighting (empty portfolio or no capital)")
-
-        if short_weighting:
-            logger.info("[WEIGHTING] Short weighting calculated successfully")
-        else:
-            logger.info("[WEIGHTING] No short weighting (empty portfolio or no capital)")
-
-        long_orders = long_weighting.get_orders_params() if long_weighting else {"buy": [], "sell": []}
-        short_orders = short_weighting.get_orders_params() if short_weighting else {"buy": [], "sell": []}
-
-        closing_orders = long_orders["sell"] + short_orders["buy"]
-        opening_orders = long_orders["buy"] + short_orders["sell"]
-        
-        total_orders = len(closing_orders) + len(opening_orders)
-        if total_orders > 0:
-            logger.info(f"[ORDERS] Generated {total_orders} orders: {len(closing_orders)} closing, {len(opening_orders)} opening")
-            for o in closing_orders:
-                logger.info(f"  [ORDER] {o['side'].upper():4s} {o['symbol']:10s} qty={o['quantity']}")
-            for o in opening_orders:
-                logger.info(f"  [ORDER] {o['side'].upper():4s} {o['symbol']:10s} qty={o['quantity']}")
-        else:
-             logger.info("[ORDERS] No rebalancing needed - portfolio matches strategy weights")
-
-        if not self._dry_orders:
-            if closing_orders or opening_orders:
-                logger.info(f"[SUBMIT] Submitting {len(closing_orders)} closing + {len(opening_orders)} opening orders to broker...")
-                self._broker.submit_orders(closing_orders)
-                self._broker.submit_orders(opening_orders)
-                logger.info(f"[SUBMIT] ✓ All {total_orders} orders submitted successfully")
-        else:
-            if total_orders > 0:
-                logger.info(f"[SUBMIT] DRY ORDERS MODE - {total_orders} orders simulated (not submitted to broker)")
+            if len(crypto_asset_ids) != len(crypto_tradable_ids):
+                skipped = set(crypto_asset_ids) - set(crypto_tradable_ids)
+                logger.info(f"[CRYPTO] Removed {len(skipped)} non-tradable assets: {skipped}")
             else:
-                logger.info("[SUBMIT] DRY ORDERS MODE - No orders to simulate")
+                logger.info(f"[CRYPTO] All {len(crypto_asset_ids)} crypto assets are tradable")
 
-        long_records = long_weighting.get_orders_records(portfolio_id) if long_weighting else []
-        short_records = short_weighting.get_orders_records(portfolio_id) if short_weighting else []
+            # Close unwanted crypto positions
+            crypto_closed_records = []
+            if current_positions:
+                current_symbols = list(current_positions.keys())
+                crypto_symbols = [s.asset_id for s in crypto_filtered]
+                crypto_to_close = [s for s in current_symbols if s not in crypto_symbols]
 
-        orders_records = long_records + short_records + closed_records
+                if crypto_to_close:
+                    logger.info(f"[CRYPTO] Closing {len(crypto_to_close)} positions: {crypto_to_close}")
+                    if not self._dry_orders:
+                        crypto_closed_records = self._broker.close_positions(portfolio_id, crypto_to_close)
+
+            # Crypto long portfolio
+            crypto_long = [p for p in crypto_filtered if p.decision == 1]
+            crypto_capital = account_capital
+            if self._crypto:
+                crypto_capital = (1 - self._cash_allocation) * crypto_capital
+                logger.info(f"[CRYPTO] Cash cushion applied: {self._cash_allocation*100:.1f}% reserved")
+
+            if crypto_long and crypto_capital > 0:
+                crypto_weighting = Weighting.setup(
+                    self._broker, crypto_capital, crypto_long, current_positions
+                )
+                crypto_orders_params = crypto_weighting.get_orders_params()
+                crypto_orders = crypto_orders_params.get("buy", []) + crypto_orders_params.get("sell", [])
+                crypto_order_records = crypto_weighting.get_orders_records(portfolio_id)
+
+                logger.info(f"[CRYPTO] Generated {len(crypto_orders)} orders")
+                all_orders.extend(crypto_orders)
+                all_records.extend(crypto_order_records + crypto_closed_records)
+            else:
+                logger.info("[CRYPTO] No long positions or capital available")
+                all_records.extend(crypto_closed_records)
+
+            logger.info("[========== PROCESSING CRYPTO DONE ==========]")
+
+        # Process stock records if any
+        if stock_records:
+            logger.info("[========== PROCESSING STOCKS ==========]")
+            self._broker.crypto = False
+
+            stock_asset_ids = [s.asset_id for s in stock_records]
+            stock_tradable_ids = self._broker.check_tradable(stock_asset_ids)
+            stock_filtered = [s for s in stock_records if s.asset_id in stock_tradable_ids]
+
+            if len(stock_asset_ids) != len(stock_tradable_ids):
+                skipped = set(stock_asset_ids) - set(stock_tradable_ids)
+                logger.info(f"[STOCK] Removed {len(skipped)} non-tradable assets: {skipped}")
+            else:
+                logger.info(f"[STOCK] All {len(stock_asset_ids)} stock assets are tradable")
+
+            # Close unwanted stock positions
+            stock_closed_records = []
+            if current_positions:
+                current_symbols = list(current_positions.keys())
+                stock_symbols = [s.asset_id for s in stock_filtered]
+                stock_to_close = [s for s in current_symbols if s not in stock_symbols]
+
+                if stock_to_close:
+                    logger.info(f"[STOCK] Closing {len(stock_to_close)} positions: {stock_to_close}")
+                    if not self._dry_orders:
+                        stock_closed_records = self._broker.close_positions(portfolio_id, stock_to_close)
+
+            # Stock long portfolio
+            stock_long = [p for p in stock_filtered if p.decision == 1]
+            stock_capital = account_capital  # No cash cushion for stocks
+
+            if stock_long and stock_capital > 0:
+                stock_weighting = Weighting.setup(
+                    self._broker, stock_capital, stock_long, current_positions
+                )
+                stock_orders_params = stock_weighting.get_orders_params()
+                stock_orders = stock_orders_params.get("buy", []) + stock_orders_params.get("sell", [])
+                stock_order_records = stock_weighting.get_orders_records(portfolio_id)
+
+                logger.info(f"[STOCK] Generated {len(stock_orders)} orders")
+                all_orders.extend(stock_orders)
+                all_records.extend(stock_order_records + stock_closed_records)
+            else:
+                logger.info("[STOCK] No long positions or capital available")
+                all_records.extend(stock_closed_records)
+
+            logger.info("[========== PROCESSING STOCKS DONE ==========]")
+
+        # SUBMIT ALL ORDERS
+        total_orders = len(all_orders)
+        if total_orders > 0:
+            logger.info(f"[ORDERS] Total {total_orders} orders generated across all asset classes")
+            if not self._dry_orders:
+                logger.info(f"[SUBMIT] Submitting {total_orders} orders to broker...")
+                self._broker.submit_orders(all_orders)
+                logger.info(f"[SUBMIT] ✓ All {total_orders} orders submitted successfully")
+            else:
+                logger.info(f"[SUBMIT] DRY ORDERS MODE - {total_orders} orders simulated (not submitted to broker)")
+        else:
+            logger.info("[ORDERS] No rebalancing needed - portfolio matches strategy weights")
+
+        # PERSIST RECORDS
         control_records = [(
                 portfolio_id,
                 latest_decision_delivery_id,
@@ -378,23 +393,23 @@ class Loader:
                 file=config_records,
             ),
         }
-        if orders_records:
-            logger.info(f"[RECORDS] Creating order records for {len(orders_records)} executed orders")
+        if all_records:
+            logger.info(f"[RECORDS] Creating order records for {len(all_records)} executed orders")
             delivery[Entity.ORDERS] = self.process(
                 delivery_id=delivery_id,
                 entity=Entity.ORDERS,
-                file=orders_records,
+                file=all_records,
             )
             delivery[Entity.ORDERS_LATEST] = self.process(
                 delivery_id=delivery_id,
                 entity=Entity.ORDERS_LATEST,
-                file=orders_records,
+                file=all_records,
             )
 
         # persist delivery
         end_time = datetime.utcnow()
         runtime = end_time - start_time
-        
+
         if not self._dry_run:
             logger.info(f"[PERSIST] Saving delivery {delivery_id} to database...")
             self.persist_delivery(
@@ -402,11 +417,39 @@ class Loader:
                 start_time=start_time,
                 delivery=delivery,
             )
-            logger.info(f"[COMPLETE] Delivery {delivery_id} processed: {total_orders} orders, {len(orders_records)} records saved ({runtime.total_seconds():.2f}s)")
+            logger.info(f"[COMPLETE] Delivery {delivery_id} processed: {total_orders} orders, {len(all_records)} records saved ({runtime.total_seconds():.2f}s)")
         else:
             logger.info(f"[COMPLETE] DRY RUN - Delivery {delivery_id}: {total_orders} orders simulated, NOT saved to database ({runtime.total_seconds():.2f}s)")
 
         del delivery
+
+    @staticmethod
+    def detect_asset_type(symbol: str) -> str:
+        """Detect if asset is crypto or stock based on symbol format.
+
+        Crypto symbols typically end with 'USD' and have longer names: BTCUSD, ETHUSD, etc.
+        Stock symbols are typically shorter: AAPL, TSLA, BRK-B, etc.
+
+        Args:
+            symbol: The asset symbol (e.g., 'BTCUSD', 'AAPL', 'ETHUSD')
+
+        Returns:
+            'CRYPTO_TICKER' or 'STOCK_TICKER'
+        """
+        # Crypto symbols typically have a currency suffix (USD, EUR, etc.)
+        # and are longer, or match known crypto patterns
+        if symbol.endswith('USD') and len(symbol) > 6:
+            # BTCUSD, ETHUSD, AAVEUSD, etc. - likely crypto
+            return "CRYPTO_TICKER"
+        elif symbol.endswith('EUR') and len(symbol) > 6:
+            # Crypto with EUR suffix
+            return "CRYPTO_TICKER"
+        elif symbol.endswith('GBP') and len(symbol) > 6:
+            # Crypto with GBP suffix
+            return "CRYPTO_TICKER"
+        else:
+            # Everything else is a stock
+            return "STOCK_TICKER"
 
     @staticmethod
     def check_market_open(open_time: dt_time, close_time: dt_time, t: dt_time) -> bool:
